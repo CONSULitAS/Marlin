@@ -235,7 +235,7 @@
 * Arduino Mega pin assignment
 *
 ****************************************************************************************/
-#if MOTHERBOARD == 3 || MOTHERBOARD == 33 || MOTHERBOARD == 34
+#if MOTHERBOARD == 3 || MOTHERBOARD == 33 || MOTHERBOARD == 34 || MOTHERBOARD == 77
 #define KNOWN_BOARD 1
 
 //////////////////FIX THIS//////////////
@@ -245,11 +245,52 @@
  #endif
 #endif
 
+
 // uncomment one of the following lines for RAMPS v1.3 or v1.0, comment both for v1.2 or 1.1
 // #define RAMPS_V_1_3
 // #define RAMPS_V_1_0
 
-#if MOTHERBOARD == 33 || MOTHERBOARD == 34
+
+#if MOTHERBOARD == 33 || MOTHERBOARD == 34 || MOTHERBOARD == 77
+
+#if MOTHERBOARD == 77
+#define X_STEP_PIN         54
+#define X_DIR_PIN          55
+#define X_ENABLE_PIN       38
+#define X_MIN_PIN           3
+#define X_MAX_PIN           -1   //2 //Max endstops default to disabled "-1", set to commented value to enable.
+
+#define Y_STEP_PIN         60
+#define Y_DIR_PIN          61
+#define Y_ENABLE_PIN       56
+#define Y_MIN_PIN          14
+#define Y_MAX_PIN          -1   //15
+
+#define Z_STEP_PIN         46
+#define Z_DIR_PIN          48
+#define Z_ENABLE_PIN       63
+#define Z_MIN_PIN          18
+#define Z_MAX_PIN          -1
+
+#define Z2_STEP_PIN        36
+#define Z2_DIR_PIN         34
+#define Z2_ENABLE_PIN      30
+
+#define E0_STEP_PIN        26
+#define E0_DIR_PIN         28
+#define E0_ENABLE_PIN      24
+
+#define E1_STEP_PIN        36
+#define E1_DIR_PIN         34
+#define E1_ENABLE_PIN      30
+
+#define SDPOWER            -1
+#define SDSS               53
+#define LED_PIN            13
+
+#define BEEPER             33	
+
+#else
 
 #define X_STEP_PIN         54
 #define X_DIR_PIN          55
@@ -284,26 +325,39 @@
 #define SDPOWER            -1
 #define SDSS               53
 #define LED_PIN            13
+#endif
 
 #if MOTHERBOARD == 33
 #define FAN_PIN            9 // (Sprinter config)
 #else
 #define FAN_PIN            4 // IO pin. Buffer needed
 #endif
+
+#if MOTHERBOARD == 77
+#define FAN_PIN            8 
+#endif
+
 #define PS_ON_PIN          12
 #define KILL_PIN           -1
 
 #define HEATER_0_PIN       10   // EXTRUDER 1
-#if MOTHERBOARD == 33
+#if MOTHERBOARD == 33 
 #define HEATER_1_PIN       -1
 #else
 #define HEATER_1_PIN       9    // EXTRUDER 2 (FAN On Sprinter)
 #endif
-#define HEATER_2_PIN       -1   
+#define HEATER_2_PIN       -1 
+
+#if MOTHERBOARD == 77
+#define HEATER_0_PIN       10   
+#define HEATER_1_PIN       12 
+#define HEATER_2_PIN       6   
+#endif
+
 #define TEMP_0_PIN         13   // ANALOG NUMBERING
 #define TEMP_1_PIN         15   // ANALOG NUMBERING
 #define TEMP_2_PIN         -1   // ANALOG NUMBERING
-#define HEATER_BED_PIN     8    // BED
+#define HEATER_BED_PIN     9    // BED
 #define TEMP_BED_PIN       14   // ANALOG NUMBERING
 
 #ifdef ULTRA_LCD
@@ -564,12 +618,12 @@
 #if MOTHERBOARD == 63
 #define MELZI
 #endif
-#if MOTHERBOARD == 62 || MOTHERBOARD == 63
+#if MOTHERBOARD == 62 || MOTHERBOARD == 63 // 
 #undef MOTHERBOARD
 #define MOTHERBOARD 6
 #define SANGUINOLOLU_V_1_2 
 #endif
-#if MOTHERBOARD == 6
+#if MOTHERBOARD == 6    
 #define KNOWN_BOARD 1
 #ifndef __AVR_ATmega644P__
 #ifndef __AVR_ATmega1284P__
@@ -612,7 +666,7 @@
 
 #define LED_PIN            -1
 
-#define FAN_PIN            -1 
+
 
 #ifdef MELZI
 #define LED_PIN            28
@@ -625,6 +679,7 @@
 #define HEATER_0_PIN       13 // (extruder)
 #define HEATER_1_PIN       -1
 #define HEATER_2_PIN       -1
+
 
 #ifdef SANGUINOLOLU_V_1_2
 
@@ -644,6 +699,9 @@
 
 #endif
 
+#define FAN_PIN            -1
+
+
 #define TEMP_0_PIN          7   // MUST USE ANALOG INPUT NUMBERING NOT DIGITAL OUTPUT NUMBERING!!!!!!!!! (pin 33 extruder)
 #define TEMP_1_PIN         -1
 #define TEMP_2_PIN         -1
@@ -656,6 +714,67 @@
 #endif
 
 #endif
+
+
+
+/****************************************************************************************
+* Boris 1284 pin assignment
+*
+****************************************************************************************/
+#if MOTHERBOARD == 76    //Boris's Board with 1284
+#define KNOWN_BOARD 1
+
+#ifndef __AVR_ATmega1284P__
+#error Oops!  Make sure you have 'Sanguino' selected from the 'Tools -> Boards' menu.
+#endif
+
+#define X_STEP_PIN         15
+#define X_DIR_PIN          21
+
+#define Y_STEP_PIN         22
+#define Y_DIR_PIN          23
+
+#define Z_STEP_PIN         3
+#define Z_DIR_PIN          2
+
+#define E0_STEP_PIN         1
+#define E0_DIR_PIN          0
+
+#define LED_PIN            -1
+
+#define PS_ON_PIN          -1
+#define KILL_PIN           -1
+
+#define HEATER_0_PIN       13 // (extruder)
+#define HEATER_1_PIN       -1
+#define HEATER_2_PIN       -1
+
+
+
+  #define Z_MIN_PIN          20 
+  #define Y_MIN_PIN          19 
+  #define X_MIN_PIN          18 
+  #define Z_MAX_PIN          -1
+  #define Y_MAX_PIN          -1
+  #define X_MAX_PIN          -1
+  #define HEATER_BED_PIN       12  // (bed)
+  #define X_ENABLE_PIN       31
+  #define Y_ENABLE_PIN       31  
+  #define Z_ENABLE_PIN       26
+  #define E0_ENABLE_PIN      31
+  #define FAN_PIN            14
+
+#define TEMP_0_PIN          7   // MUST USE ANALOG INPUT NUMBERING NOT DIGITAL OUTPUT NUMBERING!!!!!!!!! (pin 33 extruder)
+#define TEMP_1_PIN         -1
+#define TEMP_2_PIN         -1
+#define TEMP_BED_PIN        6   // MUST USE ANALOG INPUT NUMBERING NOT DIGITAL OUTPUT NUMBERING!!!!!!!!! (pin 34 bed)
+#define SDPOWER            -1
+#define SDSS               -1
+
+
+#endif
+
+
 
 
 #if MOTHERBOARD == 7
