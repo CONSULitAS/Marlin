@@ -117,7 +117,7 @@ static void lcd_status_screen();
   #endif
 
   /* Different types of actions that can be used in menu items. */
-  static void menu_action_back(menuFunc_t data);
+  static void menu_action_back();
   static void menu_action_submenu(menuFunc_t data);
   static void menu_action_gcode(const char* pgcode);
   static void menu_action_function(menuFunc_t data);
@@ -188,9 +188,9 @@ static void lcd_status_screen();
    *   menu_action_[type](arg3...)
    *
    * Examples:
-   *   MENU_ITEM(back, MSG_WATCH, lcd_status_screen)
-   *     lcd_implementation_drawmenu_back(sel, row, PSTR(MSG_WATCH), lcd_status_screen)
-   *     menu_action_back(lcd_status_screen)
+   *   MENU_ITEM(back, MSG_WATCH)
+   *     lcd_implementation_drawmenu_back(sel, row, PSTR(MSG_WATCH))
+   *     menu_action_back()
    *
    *   MENU_ITEM(function, MSG_PAUSE_PRINT, lcd_sdcard_pause)
    *     lcd_implementation_drawmenu_function(sel, row, PSTR(MSG_PAUSE_PRINT), lcd_sdcard_pause)
@@ -267,14 +267,25 @@ static void lcd_status_screen();
   uint8_t currentMenuViewOffset;              /* scroll offset in the current menu */
   millis_t next_button_update_ms;
   uint8_t lastEncoderBits;
-  uint32_t encoderPosition, prevEncoderPosition;
+  uint32_t encoderPosition;
   #if PIN_EXISTS(SD_DETECT)
     uint8_t lcd_sd_status;
   #endif
 
 #endif // ULTIPANEL
 
-menuFunc_t currentMenu = lcd_status_screen; /* function pointer to the currently active menu */
+typedef struct {
+  menuFunc_t menu_function;
+  #if ENABLED(ULTIPANEL)
+    uint32_t encoder_position;
+  #endif
+} menuPosition;
+
+menuFunc_t currentMenu = lcd_status_screen; // pointer to the currently active menu handler
+
+menuPosition menu_history[10];
+uint8_t menu_history_depth = 0;
+
 millis_t next_lcd_update_ms;
 uint8_t lcd_status_update_delay;
 bool ignore_click = false;
@@ -294,7 +305,6 @@ uint8_t lcdDrawUpdate = LCD_DRAW_UPDATE_CLEAR_CALL_REDRAW; // Set 1 or 2 when th
 const char* editLabel;
 void* editValue;
 int32_t minEditValue, maxEditValue;
-menuFunc_t prevMenu = NULL;           // return here after editing (also prevEncoderPosition)
 menuFunc_t callbackFunc;              // call this after editing
 
 // place-holders for Ki and Kd edits
@@ -302,6 +312,7 @@ float raw_Ki, raw_Kd;
 
 /**
  * General function to go directly to a menu
+ * Remembers the previous position
  */
 static void lcd_goto_menu(menuFunc_t menu, const bool feedback = false, const uint32_t encoder = 0) {
   if (currentMenu != menu) {
@@ -311,26 +322,40 @@ static void lcd_goto_menu(menuFunc_t menu, const bool feedback = false, const ui
       encoderPosition = encoder;
       if (feedback) lcd_quick_feedback();
     #endif
-    // For LCD_PROGRESS_BAR re-initialize the custom characters
+    if (menu == lcd_status_screen) menu_history_depth = 0;
     #if ENABLED(LCD_PROGRESS_BAR)
+      // For LCD_PROGRESS_BAR re-initialize custom characters
       lcd_set_custom_characters(menu == lcd_status_screen);
     #endif
   }
 }
 
+static void lcd_return_to_status() {
+  defer_return_to_status = false;
+  lcd_goto_menu(lcd_status_screen);
+}
+
 inline void lcd_save_previous_menu() {
-  prevMenu = currentMenu;
-  #if ENABLED(ULTIPANEL)
-    prevEncoderPosition = encoderPosition;
-  #endif
+  if (menu_history_depth < COUNT(menu_history)) {
+    menu_history[menu_history_depth].menu_function = currentMenu;
+    #if ENABLED(ULTIPANEL)
+      menu_history[menu_history_depth].encoder_position = encoderPosition;
+    #endif
+    ++menu_history_depth;
+  }
 }
 
 static void lcd_goto_previous_menu() {
-  lcd_goto_menu(prevMenu, true
-    #if ENABLED(ULTIPANEL)
-      , prevEncoderPosition
-    #endif
-  );
+  if (menu_history_depth > 0) {
+    --menu_history_depth;
+    lcd_goto_menu(menu_history[menu_history_depth].menu_function, true
+      #if ENABLED(ULTIPANEL)
+        , menu_history[menu_history_depth].encoder_position
+      #endif
+    );
+  }
+  else
+    lcd_return_to_status();
 }
 
 /**
@@ -439,11 +464,6 @@ static void lcd_status_screen() {
 
 #if ENABLED(ULTIPANEL)
 
-static void lcd_return_to_status() {
-  defer_return_to_status = false;
-  lcd_goto_menu(lcd_status_screen);
-}
-
 #if ENABLED(SDSUPPORT)
 
   static void lcd_sdcard_pause() { card.pauseSDPrint(); }
@@ -469,7 +489,7 @@ static void lcd_return_to_status() {
 
 static void lcd_main_menu() {
   START_MENU();
-  MENU_ITEM(back, MSG_WATCH, lcd_status_screen);
+  MENU_ITEM(back, MSG_WATCH);
   if (movesplanned() || IS_SD_PRINTING) {
     MENU_ITEM(submenu, MSG_TUNE, lcd_tune_menu);
   }
@@ -612,7 +632,7 @@ static void lcd_tune_menu() {
   //
   // ^ Main
   //
-  MENU_ITEM(back, MSG_MAIN, lcd_main_menu);
+  MENU_ITEM(back, MSG_MAIN);
 
   //
   // Speed:
@@ -782,7 +802,7 @@ void _lcd_preheat(int endnum, const float temph, const float tempb, const int fa
 
   static void lcd_preheat_pla_menu() {
     START_MENU();
-    MENU_ITEM(back, MSG_PREPARE, lcd_prepare_menu);
+    MENU_ITEM(back, MSG_PREPARE);
     #if EXTRUDERS == 1
       MENU_ITEM(function, MSG_PREHEAT_PLA, lcd_preheat_pla0);
     #else
@@ -804,7 +824,7 @@ void _lcd_preheat(int endnum, const float temph, const float tempb, const int fa
 
   static void lcd_preheat_abs_menu() {
     START_MENU();
-    MENU_ITEM(back, MSG_PREPARE, lcd_prepare_menu);
+    MENU_ITEM(back, MSG_PREPARE);
     #if EXTRUDERS == 1
       MENU_ITEM(function, MSG_PREHEAT_ABS, lcd_preheat_abs0);
     #else
@@ -846,7 +866,7 @@ static void lcd_prepare_menu() {
   //
   // ^ Main
   //
-  MENU_ITEM(back, MSG_MAIN, lcd_main_menu);
+  MENU_ITEM(back, MSG_MAIN);
 
   //
   // Auto Home
@@ -922,7 +942,7 @@ static void lcd_prepare_menu() {
 
   static void lcd_delta_calibrate_menu() {
     START_MENU();
-    MENU_ITEM(back, MSG_MAIN, lcd_main_menu);
+    MENU_ITEM(back, MSG_MAIN);
     MENU_ITEM(gcode, MSG_AUTO_HOME, PSTR("G28"));
     MENU_ITEM(gcode, MSG_DELTA_CALIBRATE_X, PSTR("G0 F8000 X-77.94 Y-45 Z0"));
     MENU_ITEM(gcode, MSG_DELTA_CALIBRATE_Y, PSTR("G0 F8000 X77.94 Y-45 Z0"));
@@ -1034,7 +1054,7 @@ static void lcd_move_e(
 
 static void lcd_move_menu_axis() {
   START_MENU();
-  MENU_ITEM(back, MSG_MOVE_AXIS, lcd_move_menu);
+  MENU_ITEM(back, MSG_MOVE_AXIS);
   MENU_ITEM(submenu, MSG_MOVE_X, lcd_move_x);
   MENU_ITEM(submenu, MSG_MOVE_Y, lcd_move_y);
   if (move_menu_scale < 10.0) {
@@ -1076,7 +1096,7 @@ static void lcd_move_menu_01mm() {
 
 static void lcd_move_menu() {
   START_MENU();
-  MENU_ITEM(back, MSG_PREPARE, lcd_prepare_menu);
+  MENU_ITEM(back, MSG_PREPARE);
   MENU_ITEM(submenu, MSG_MOVE_10MM, lcd_move_menu_10mm);
   MENU_ITEM(submenu, MSG_MOVE_1MM, lcd_move_menu_1mm);
   MENU_ITEM(submenu, MSG_MOVE_01MM, lcd_move_menu_01mm);
@@ -1092,7 +1112,7 @@ static void lcd_move_menu() {
 
 static void lcd_control_menu() {
   START_MENU();
-  MENU_ITEM(back, MSG_MAIN, lcd_main_menu);
+  MENU_ITEM(back, MSG_MAIN);
   MENU_ITEM(submenu, MSG_TEMPERATURE, lcd_control_temperature_menu);
   MENU_ITEM(submenu, MSG_MOTION, lcd_control_motion_menu);
   MENU_ITEM(submenu, MSG_VOLUMETRIC, lcd_control_volumetric_menu);
@@ -1201,7 +1221,7 @@ static void lcd_control_temperature_menu() {
   //
   // ^ Control
   //
-  MENU_ITEM(back, MSG_CONTROL, lcd_control_menu);
+  MENU_ITEM(back, MSG_CONTROL);
 
   //
   // Nozzle:
@@ -1333,7 +1353,7 @@ static void lcd_control_temperature_menu() {
  */
 static void lcd_control_temperature_preheat_pla_settings_menu() {
   START_MENU();
-  MENU_ITEM(back, MSG_TEMPERATURE, lcd_control_temperature_menu);
+  MENU_ITEM(back, MSG_TEMPERATURE);
   MENU_ITEM_EDIT(int3, MSG_FAN_SPEED, &plaPreheatFanSpeed, 0, 255);
   #if TEMP_SENSOR_0 != 0
     MENU_ITEM_EDIT(int3, MSG_NOZZLE, &plaPreheatHotendTemp, HEATER_0_MINTEMP, HEATER_0_MAXTEMP - 15);
@@ -1354,7 +1374,7 @@ static void lcd_control_temperature_preheat_pla_settings_menu() {
  */
 static void lcd_control_temperature_preheat_abs_settings_menu() {
   START_MENU();
-  MENU_ITEM(back, MSG_TEMPERATURE, lcd_control_temperature_menu);
+  MENU_ITEM(back, MSG_TEMPERATURE);
   MENU_ITEM_EDIT(int3, MSG_FAN_SPEED, &absPreheatFanSpeed, 0, 255);
   #if TEMP_SENSOR_0 != 0
     MENU_ITEM_EDIT(int3, MSG_NOZZLE, &absPreheatHotendTemp, HEATER_0_MINTEMP, HEATER_0_MAXTEMP - 15);
@@ -1375,7 +1395,7 @@ static void lcd_control_temperature_preheat_abs_settings_menu() {
  */
 static void lcd_control_motion_menu() {
   START_MENU();
-  MENU_ITEM(back, MSG_CONTROL, lcd_control_menu);
+  MENU_ITEM(back, MSG_CONTROL);
   #if ENABLED(AUTO_BED_LEVELING_FEATURE)
     MENU_ITEM_EDIT(float32, MSG_ZPROBE_ZOFFSET, &zprobe_zoffset, Z_PROBE_OFFSET_RANGE_MIN, Z_PROBE_OFFSET_RANGE_MAX);
   #endif
@@ -1428,7 +1448,7 @@ static void lcd_control_motion_menu() {
  */
 static void lcd_control_volumetric_menu() {
   START_MENU();
-  MENU_ITEM(back, MSG_CONTROL, lcd_control_menu);
+  MENU_ITEM(back, MSG_CONTROL);
 
   MENU_ITEM_EDIT_CALLBACK(bool, MSG_VOLUMETRIC_ENABLED, &volumetric_enabled, calculate_volumetric_multipliers);
 
@@ -1489,7 +1509,7 @@ static void lcd_control_volumetric_menu() {
 #if ENABLED(FWRETRACT)
   static void lcd_control_retract_menu() {
     START_MENU();
-    MENU_ITEM(back, MSG_CONTROL, lcd_control_menu);
+    MENU_ITEM(back, MSG_CONTROL);
     MENU_ITEM_EDIT(bool, MSG_AUTORETRACT, &autoretract_enabled);
     MENU_ITEM_EDIT(float52, MSG_CONTROL_RETRACT, &retract_length, 0, 100);
     #if EXTRUDERS > 1
@@ -1530,7 +1550,7 @@ static void lcd_control_volumetric_menu() {
     if (lcdDrawUpdate == 0 && LCD_CLICKED == 0) return; // nothing to do (so don't thrash the SD card)
     uint16_t fileCnt = card.getnrfilenames();
     START_MENU();
-    MENU_ITEM(back, MSG_MAIN, lcd_main_menu);
+    MENU_ITEM(back, MSG_MAIN);
     card.getWorkDirName();
     if (card.filename[0] == '/') {
       #if !PIN_EXISTS(SD_DETECT)
@@ -1722,7 +1742,7 @@ void lcd_quick_feedback() {
  * Menu actions
  *
  */
-static void menu_action_back(menuFunc_t func) { lcd_goto_menu(func); }
+static void menu_action_back() { lcd_goto_previous_menu(); }
 static void menu_action_submenu(menuFunc_t func) { lcd_save_previous_menu(); lcd_goto_menu(func); }
 static void menu_action_gcode(const char* pgcode) { enqueue_and_echo_commands_P(pgcode); }
 static void menu_action_function(menuFunc_t func) { (*func)(); }
@@ -2616,7 +2636,7 @@ char* ftostr52(const float& x) {
    */
   static void lcd_level_bed() {
     START_MENU();
-    MENU_ITEM(back, MSG_LEVEL_BED_CANCEL, lcd_prepare_menu);
+    MENU_ITEM(back, MSG_LEVEL_BED_CANCEL);
     MENU_ITEM(submenu, MSG_LEVEL_BED, _lcd_level_bed_continue);
     END_MENU();
   }
