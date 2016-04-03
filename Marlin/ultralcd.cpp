@@ -528,13 +528,6 @@ static void lcd_main_menu() {
   END_MENU();
 }
 
-#if ENABLED(SDSUPPORT) && ENABLED(MENU_ADDAUTOSTART)
-  static void lcd_autostart_sd() {
-    card.autostart_index = 0;
-    card.setroot();
-    card.checkautostart(true);
-  }
-#endif
 
 /**
  * Set the home offset based on the current_position
@@ -854,6 +847,15 @@ void lcd_cooldown() {
   lcd_return_to_status();
 }
 
+#if ENABLED(SDSUPPORT) && ENABLED(MENU_ADDAUTOSTART)
+
+  static void lcd_autostart_sd() {
+    card.autostart_index = 0;
+    card.setroot();
+    card.checkautostart(true);
+  }
+
+#endif
 /**
  *
  * "Prepare" submenu
