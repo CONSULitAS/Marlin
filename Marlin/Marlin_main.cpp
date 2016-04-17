@@ -3602,13 +3602,14 @@ inline void gcode_G92() {
 
       current_position[i] = v;
 
-      position_shift[i] += v - p; // Offset the coordinate space
-      update_software_endstops((AxisEnum)i);
-
       if (i == E_AXIS)
         plan_set_e_position(v);
-      else
+      else {
+        position_shift[i] += v - p; // Offset the coordinate space
+        update_software_endstops((AxisEnum)i);
+		  
         didXYZ = true;
+	  }
     }
   }
   if (didXYZ) {
