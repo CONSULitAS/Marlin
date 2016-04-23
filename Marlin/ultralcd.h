@@ -1,11 +1,38 @@
+/**
+ * Marlin 3D Printer Firmware
+ * Copyright (C) 2016 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+ *
+ * Based on Sprinter and grbl.
+ * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+
 #ifndef ULTRALCD_H
 #define ULTRALCD_H
 
 #include "Marlin.h"
+
 #if ENABLED(ULTRA_LCD)
+
   #include "buzzer.h"
 
-  int lcd_strlen(char* s);
+  #define BUTTON_EXISTS(BN) (defined(BTN_## BN) && BTN_## BN >= 0)
+  #define BUTTON_PRESSED(BN) !READ(BTN_## BN)
+
+  int lcd_strlen(const char* s);
   int lcd_strlen_P(const char* s);
   void lcd_update();
   void lcd_init();
@@ -59,8 +86,8 @@
   #endif
   void lcd_quick_feedback(); // Audible feedback for a button click - could also be visual
   bool lcd_clicked();
-
   void lcd_ignore_click(bool b=true);
+  bool lcd_blink();
 
   #if ENABLED(NEWPANEL)
     #define EN_C (_BV(BLEN_C))
@@ -118,10 +145,10 @@
 #endif //ULTRA_LCD
 
 char* itostr2(const uint8_t& x);
-char* itostr31(const int& xx);
-char* itostr3(const int& xx);
-char* itostr3left(const int& xx);
-char* itostr4(const int& xx);
+char* itostr31(const int& x);
+char* itostr3(const int& x);
+char* itostr3left(const int& x);
+char* itostr4(const int& x);
 char* itostr4sign(const int& x);
 
 char* ftostr3(const float& x);
@@ -129,7 +156,7 @@ char* ftostr4sign(const float& x);
 char* ftostr31ns(const float& x); // float to string without sign character
 char* ftostr31(const float& x);
 char* ftostr32(const float& x);
-char* ftostr43(const float& x);
+char* ftostr43(const float& x, char plus=' ');
 char* ftostr12ns(const float& x);
 char* ftostr32sp(const float& x); // remove zero-padding from ftostr32
 char* ftostr5(const float& x);

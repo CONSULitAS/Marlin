@@ -1,4 +1,26 @@
 /**
+ * Marlin 3D Printer Firmware
+ * Copyright (C) 2016 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+ *
+ * Based on Sprinter and grbl.
+ * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+
+/**
  * stepper.cpp - stepper motor driver: executes motion plans using stepper motors
  * Marlin Firmware
  *
@@ -30,6 +52,7 @@
 #include "language.h"
 #include "cardreader.h"
 #include "speed_lookuptable.h"
+
 #if HAS_DIGIPOTSS
   #include <SPI.h>
 #endif
@@ -39,6 +62,9 @@
 //===========================================================================
 block_t* current_block;  // A pointer to the block currently being traced
 
+#if ENABLED(HAS_Z_MIN_PROBE)
+  volatile bool z_probe_is_active = false;
+#endif
 
 //===========================================================================
 //============================= private variables ===========================
@@ -87,11 +113,21 @@ static volatile char endstop_hit_bits = 0; // use X_MIN, Y_MIN, Z_MIN and Z_MIN_
   bool abort_on_endstop_hit = false;
 #endif
 
-#if PIN_EXISTS(MOTOR_CURRENT_PWM_XY)
-  int motor_current_setting[3] = DEFAULT_PWM_MOTOR_CURRENT;
+#if HAS_MOTOR_CURRENT_PWM
+  #ifndef PWM_MOTOR_CURRENT
+    #define PWM_MOTOR_CURRENT DEFAULT_PWM_MOTOR_CURRENT
+  #endif
+  const int motor_current_setting[3] = PWM_MOTOR_CURRENT;
 #endif
 
 static bool check_endstops = true;
+static bool check_endstops_global =
+  #if ENABLED(ENDSTOPS_ONLY_FOR_HOMING)
+    false
+  #else
+    true
+  #endif
+;
 
 volatile long count_position[NUM_AXIS] = { 0 }; // Positions of stepper motors, in step units
 volatile signed char count_direction[NUM_AXIS] = { 1 };
@@ -245,9 +281,13 @@ volatile signed char count_direction[NUM_AXIS] = { 1 };
 #define ENABLE_STEPPER_DRIVER_INTERRUPT()  SBI(TIMSK1, OCIE1A)
 #define DISABLE_STEPPER_DRIVER_INTERRUPT() CBI(TIMSK1, OCIE1A)
 
-void endstops_hit_on_purpose() {
-  endstop_hit_bits = 0;
-}
+void enable_endstops(bool check) { check_endstops = check; }
+
+void enable_endstops_globally(bool check) { check_endstops_global = check_endstops = check; }
+
+void endstops_not_homing() { check_endstops = check_endstops_global; }
+
+void endstops_hit_on_purpose() { endstop_hit_bits = 0; }
 
 void checkHitEndstops() {
   if (endstop_hit_bits) {
@@ -286,17 +326,7 @@ void checkHitEndstops() {
   }
 }
 
-#if ENABLED(COREXY) || ENABLED(COREXZ)
-  #if ENABLED(COREXY)
-    #define CORE_AXIS_2 B_AXIS
-  #else
-    #define CORE_AXIS_2 C_AXIS
-  #endif
-#endif
-
-void enable_endstops(bool check) { check_endstops = check; }
-
-// Check endstops - called from ISR!
+// Check endstops - Called from ISR!
 inline void update_endstops() {
 
   #if ENABLED(Z_DUAL_ENDSTOPS)
@@ -430,17 +460,18 @@ inline void update_endstops() {
             }
           #else // !Z_DUAL_ENDSTOPS
 
-            UPDATE_ENDSTOP(Z, MIN);
-
+            #if ENABLED(Z_MIN_PROBE_USES_Z_MIN_ENDSTOP_PIN) && ENABLED(HAS_Z_MIN_PROBE)
+              if (z_probe_is_active) UPDATE_ENDSTOP(Z, MIN);
+            #else
+              UPDATE_ENDSTOP(Z, MIN);
+            #endif
           #endif // !Z_DUAL_ENDSTOPS
-        #endif // Z_MIN_PIN
+        #endif
 
-        #if ENABLED(Z_MIN_PROBE_ENDSTOP)
-          UPDATE_ENDSTOP(Z, MIN_PROBE);
-
-          if (TEST_ENDSTOP(Z_MIN_PROBE)) {
-            endstops_trigsteps[Z_AXIS] = count_position[Z_AXIS];
-            SBI(endstop_hit_bits, Z_MIN_PROBE);
+        #if ENABLED(Z_MIN_PROBE_ENDSTOP) && DISABLED(Z_MIN_PROBE_USES_Z_MIN_ENDSTOP_PIN) && ENABLED(HAS_Z_MIN_PROBE)
+          if (z_probe_is_active) {
+            UPDATE_ENDSTOP(Z, MIN_PROBE);
+            if (TEST_ENDSTOP(Z_MIN_PROBE)) SBI(endstop_hit_bits, Z_MIN_PROBE);
           }
         #endif
       }
@@ -543,32 +574,19 @@ FORCE_INLINE unsigned short calc_timer(unsigned short step_rate) {
  */
 void set_stepper_direction() {
 
-  if (TEST(out_bits, X_AXIS)) { // A_AXIS
-    X_APPLY_DIR(INVERT_X_DIR, 0);
-    count_direction[X_AXIS] = -1;
-  }
-  else {
-    X_APPLY_DIR(!INVERT_X_DIR, 0);
-    count_direction[X_AXIS] = 1;
-  }
+  #define SET_STEP_DIR(AXIS) \
+    if (TEST(out_bits, AXIS ##_AXIS)) { \
+      AXIS ##_APPLY_DIR(INVERT_## AXIS ##_DIR, false); \
+      count_direction[AXIS ##_AXIS] = -1; \
+    } \
+    else { \
+      AXIS ##_APPLY_DIR(!INVERT_## AXIS ##_DIR, false); \
+      count_direction[AXIS ##_AXIS] = 1; \
+    }
 
-  if (TEST(out_bits, Y_AXIS)) { // B_AXIS
-    Y_APPLY_DIR(INVERT_Y_DIR, 0);
-    count_direction[Y_AXIS] = -1;
-  }
-  else {
-    Y_APPLY_DIR(!INVERT_Y_DIR, 0);
-    count_direction[Y_AXIS] = 1;
-  }
-
-  if (TEST(out_bits, Z_AXIS)) { // C_AXIS
-    Z_APPLY_DIR(INVERT_Z_DIR, 0);
-    count_direction[Z_AXIS] = -1;
-  }
-  else {
-    Z_APPLY_DIR(!INVERT_Z_DIR, 0);
-    count_direction[Z_AXIS] = 1;
-  }
+  SET_STEP_DIR(X); // A
+  SET_STEP_DIR(Y); // B
+  SET_STEP_DIR(Z); // C
 
   #if DISABLED(ADVANCE)
     if (TEST(out_bits, E_AXIS)) {
@@ -586,8 +604,11 @@ void set_stepper_direction() {
 // block begins.
 FORCE_INLINE void trapezoid_generator_reset() {
 
-  if (current_block->direction_bits != out_bits) {
+  static int8_t last_extruder = -1;
+
+  if (current_block->direction_bits != out_bits || current_block->active_extruder != last_extruder) {
     out_bits = current_block->direction_bits;
+    last_extruder = current_block->active_extruder;
     set_stepper_direction();
   }
 
@@ -626,7 +647,7 @@ ISR(TIMER1_COMPA_vect) {
     current_block = NULL;
     plan_discard_current_block();
     #ifdef SD_FINISHED_RELEASECOMMAND
-      if ((cleaning_buffer_counter == 1) && (SD_FINISHED_STEPPERRELEASE)) enqueuecommands_P(PSTR(SD_FINISHED_RELEASECOMMAND));
+      if ((cleaning_buffer_counter == 1) && (SD_FINISHED_STEPPERRELEASE)) enqueue_and_echo_commands_P(PSTR(SD_FINISHED_RELEASECOMMAND));
     #endif
     cleaning_buffer_counter--;
     OCR1A = 200;
@@ -664,7 +685,11 @@ ISR(TIMER1_COMPA_vect) {
   if (current_block != NULL) {
 
     // Update endstops state, if enabled
-    if (check_endstops) update_endstops();
+    #if ENABLED(HAS_Z_MIN_PROBE)
+      if (check_endstops || z_probe_is_active) update_endstops();
+    #else
+      if (check_endstops) update_endstops();
+    #endif
 
     // Take multiple steps per interrupt (For high speed moves)
     for (int8_t i = 0; i < step_loops; i++) {
@@ -787,65 +812,32 @@ ISR(TIMER1_COMPA_vect) {
   ISR(TIMER0_COMPA_vect) {
     old_OCR0A += 52; // ~10kHz interrupt (250000 / 26 = 9615kHz)
     OCR0A = old_OCR0A;
-    // Set E direction (Depends on E direction + advance)
-    for (unsigned char i = 0; i < 4; i++) {
-      if (e_steps[0] != 0) {
-        E0_STEP_WRITE(INVERT_E_STEP_PIN);
-        if (e_steps[0] < 0) {
-          E0_DIR_WRITE(INVERT_E0_DIR);
-          e_steps[0]++;
-          E0_STEP_WRITE(!INVERT_E_STEP_PIN);
-        }
-        else if (e_steps[0] > 0) {
-          E0_DIR_WRITE(!INVERT_E0_DIR);
-          e_steps[0]--;
-          E0_STEP_WRITE(!INVERT_E_STEP_PIN);
-        }
+
+    #define STEP_E_ONCE(INDEX) \
+      if (e_steps[INDEX] != 0) { \
+        E## INDEX ##_STEP_WRITE(INVERT_E_STEP_PIN); \
+        if (e_steps[INDEX] < 0) { \
+          E## INDEX ##_DIR_WRITE(INVERT_E## INDEX ##_DIR); \
+          e_steps[INDEX]++; \
+        } \
+        else if (e_steps[INDEX] > 0) { \
+          E## INDEX ##_DIR_WRITE(!INVERT_E## INDEX ##_DIR); \
+          e_steps[INDEX]--; \
+        } \
+        E## INDEX ##_STEP_WRITE(!INVERT_E_STEP_PIN); \
       }
+
+    // Step all E steppers that have steps, up to 4 steps per interrupt
+    for (unsigned char i = 0; i < 4; i++) {
+      STEP_E_ONCE(0);
       #if EXTRUDERS > 1
-        if (e_steps[1] != 0) {
-          E1_STEP_WRITE(INVERT_E_STEP_PIN);
-          if (e_steps[1] < 0) {
-            E1_DIR_WRITE(INVERT_E1_DIR);
-            e_steps[1]++;
-            E1_STEP_WRITE(!INVERT_E_STEP_PIN);
-          }
-          else if (e_steps[1] > 0) {
-            E1_DIR_WRITE(!INVERT_E1_DIR);
-            e_steps[1]--;
-            E1_STEP_WRITE(!INVERT_E_STEP_PIN);
-          }
-        }
-      #endif
-      #if EXTRUDERS > 2
-        if (e_steps[2] != 0) {
-          E2_STEP_WRITE(INVERT_E_STEP_PIN);
-          if (e_steps[2] < 0) {
-            E2_DIR_WRITE(INVERT_E2_DIR);
-            e_steps[2]++;
-            E2_STEP_WRITE(!INVERT_E_STEP_PIN);
-          }
-          else if (e_steps[2] > 0) {
-            E2_DIR_WRITE(!INVERT_E2_DIR);
-            e_steps[2]--;
-            E2_STEP_WRITE(!INVERT_E_STEP_PIN);
-          }
-        }
-      #endif
-      #if EXTRUDERS > 3
-        if (e_steps[3] != 0) {
-          E3_STEP_WRITE(INVERT_E_STEP_PIN);
-          if (e_steps[3] < 0) {
-            E3_DIR_WRITE(INVERT_E3_DIR);
-            e_steps[3]++;
-            E3_STEP_WRITE(!INVERT_E_STEP_PIN);
-          }
-          else if (e_steps[3] > 0) {
-            E3_DIR_WRITE(!INVERT_E3_DIR);
-            e_steps[3]--;
-            E3_STEP_WRITE(!INVERT_E_STEP_PIN);
-          }
-        }
+        STEP_E_ONCE(1);
+        #if EXTRUDERS > 2
+          STEP_E_ONCE(2);
+          #if EXTRUDERS > 3
+            STEP_E_ONCE(3);
+          #endif
+        #endif
       #endif
     }
   }
@@ -1221,19 +1213,18 @@ void quickStop() {
 
 #endif //BABYSTEPPING
 
-// From Arduino DigitalPotControl example
-void digitalPotWrite(int address, int value) {
-  #if HAS_DIGIPOTSS
+#if HAS_DIGIPOTSS
+
+  // From Arduino DigitalPotControl example
+  void digitalPotWrite(int address, int value) {
     digitalWrite(DIGIPOTSS_PIN, LOW); // take the SS pin low to select the chip
     SPI.transfer(address); //  send in the address and value via SPI:
     SPI.transfer(value);
     digitalWrite(DIGIPOTSS_PIN, HIGH); // take the SS pin high to de-select the chip:
     //delay(10);
-  #else
-    UNUSED(address);
-    UNUSED(value);
-  #endif
-}
+  }
+
+#endif //HAS_DIGIPOTSS
 
 // Initialize Digipot Motor Current
 void digipot_init() {
@@ -1247,13 +1238,19 @@ void digipot_init() {
       digipot_current(i, digipot_motor_current[i]);
     }
   #endif
-  #ifdef MOTOR_CURRENT_PWM_XY_PIN
-    pinMode(MOTOR_CURRENT_PWM_XY_PIN, OUTPUT);
-    pinMode(MOTOR_CURRENT_PWM_Z_PIN, OUTPUT);
-    pinMode(MOTOR_CURRENT_PWM_E_PIN, OUTPUT);
-    digipot_current(0, motor_current_setting[0]);
-    digipot_current(1, motor_current_setting[1]);
-    digipot_current(2, motor_current_setting[2]);
+  #if HAS_MOTOR_CURRENT_PWM
+    #if PIN_EXISTS(MOTOR_CURRENT_PWM_XY)
+      pinMode(MOTOR_CURRENT_PWM_XY_PIN, OUTPUT);
+      digipot_current(0, motor_current_setting[0]);
+    #endif
+    #if PIN_EXISTS(MOTOR_CURRENT_PWM_Z)
+      pinMode(MOTOR_CURRENT_PWM_Z_PIN, OUTPUT);
+      digipot_current(1, motor_current_setting[1]);
+    #endif
+    #if PIN_EXISTS(MOTOR_CURRENT_PWM_E)
+      pinMode(MOTOR_CURRENT_PWM_E_PIN, OUTPUT);
+      digipot_current(2, motor_current_setting[2]);
+    #endif
     //Set timer5 to 31khz so the PWM of the motor power is as constant as possible. (removes a buzzing noise)
     TCCR5B = (TCCR5B & ~(_BV(CS50) | _BV(CS51) | _BV(CS52))) | _BV(CS50);
   #endif
@@ -1263,16 +1260,23 @@ void digipot_current(uint8_t driver, int current) {
   #if HAS_DIGIPOTSS
     const uint8_t digipot_ch[] = DIGIPOT_CHANNELS;
     digitalPotWrite(digipot_ch[driver], current);
-  #elif defined(MOTOR_CURRENT_PWM_XY_PIN)
+  #elif HAS_MOTOR_CURRENT_PWM
+    #define _WRITE_CURRENT_PWM(P) analogWrite(P, 255L * current / (MOTOR_CURRENT_PWM_RANGE))
     switch (driver) {
-      case 0: analogWrite(MOTOR_CURRENT_PWM_XY_PIN, 255L * current / MOTOR_CURRENT_PWM_RANGE); break;
-      case 1: analogWrite(MOTOR_CURRENT_PWM_Z_PIN, 255L * current / MOTOR_CURRENT_PWM_RANGE); break;
-      case 2: analogWrite(MOTOR_CURRENT_PWM_E_PIN, 255L * current / MOTOR_CURRENT_PWM_RANGE); break;
+      #if PIN_EXISTS(MOTOR_CURRENT_PWM_XY)
+        case 0: _WRITE_CURRENT_PWM(MOTOR_CURRENT_PWM_XY_PIN); break;
+      #endif
+      #if PIN_EXISTS(MOTOR_CURRENT_PWM_Z)
+        case 1: _WRITE_CURRENT_PWM(MOTOR_CURRENT_PWM_Z_PIN); break;
+      #endif
+      #if PIN_EXISTS(MOTOR_CURRENT_PWM_E)
+        case 2: _WRITE_CURRENT_PWM(MOTOR_CURRENT_PWM_E_PIN); break;
+      #endif
     }
   #else
     UNUSED(driver);
     UNUSED(current);
-#endif
+  #endif
 }
 
 void microstep_init() {

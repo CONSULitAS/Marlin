@@ -1,4 +1,26 @@
 /**
+ * Marlin 3D Printer Firmware
+ * Copyright (C) 2016 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+ *
+ * Based on Sprinter and grbl.
+ * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+
+/**
  * Printrboard pin assignments (AT90USB1286)
  * Requires the Teensyduino software with Teensy++ 2.0 selected in Arduino IDE!
  * http://www.pjrc.com/teensy/teensyduino.html
@@ -57,9 +79,7 @@
 #define TEMP_0_PIN          1  // Extruder / Analog pin numbering
 #define TEMP_BED_PIN        0  // Bed / Analog pin numbering
 
-#if ENABLED(FILAMENT_SENSOR)
-  #define FILWIDTH_PIN      2
-#endif
+#define FILWIDTH_PIN        2  // ANALOG NUMBERING
 
 #define TEMP_1_PIN         -1
 #define TEMP_2_PIN         -1

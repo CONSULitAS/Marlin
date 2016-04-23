@@ -1,8 +1,30 @@
 /**
+ * Marlin 3D Printer Firmware
+ * Copyright (C) 2016 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+ *
+ * Based on Sprinter and grbl.
+ * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+
+/**
  * English
  *
  * LCD Menu Messages
- * Se also documentation/LCDLanguageFont.md
+ * See also https://github.com/MarlinFirmware/Marlin/wiki/LCD-Language
  *
  */
 #ifndef LANGUAGE_EN_H
@@ -39,8 +61,20 @@
 #ifndef MSG_AUTO_HOME
   #define MSG_AUTO_HOME                       "Auto home"
 #endif
+#ifndef MSG_LEVEL_BED_HOMING
+  #define MSG_LEVEL_BED_HOMING                "Homing XYZ"
+#endif
+#ifndef MSG_LEVEL_BED_WAITING
+  #define MSG_LEVEL_BED_WAITING               "Click to Begin"
+#endif
+#ifndef MSG_LEVEL_BED_DONE
+  #define MSG_LEVEL_BED_DONE                  "Leveling Done!"
+#endif
 #ifndef MSG_SET_HOME_OFFSETS
   #define MSG_SET_HOME_OFFSETS                "Set home offsets"
+#endif
+#ifndef MSG_HOME_OFFSETS_APPLIED
+  #define MSG_HOME_OFFSETS_APPLIED            "Offsets applied"
 #endif
 #ifndef MSG_SET_ORIGIN
   #define MSG_SET_ORIGIN                      "Set origin"
@@ -143,6 +177,9 @@
 #endif
 #ifndef MSG_SPEED
   #define MSG_SPEED                           "Speed"
+#endif
+#ifndef MSG_BED_Z
+  #define MSG_BED_Z                           "Bed Z"
 #endif
 #ifndef MSG_NOZZLE
   #define MSG_NOZZLE                          "Nozzle"
@@ -390,8 +427,8 @@
 #ifndef MSG_ZPROBE_OUT
   #define MSG_ZPROBE_OUT                      "Z probe out. bed"
 #endif
-#ifndef MSG_POSITION_UNKNOWN
-  #define MSG_POSITION_UNKNOWN                "Home X/Y before Z"
+#ifndef MSG_YX_UNHOMED
+  #define MSG_YX_UNHOMED                      "Home X/Y before Z"
 #endif
 #ifndef MSG_ZPROBE_ZOFFSET
   #define MSG_ZPROBE_ZOFFSET                  "Z Offset"

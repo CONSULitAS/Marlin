@@ -1,3 +1,25 @@
+/**
+ * Marlin 3D Printer Firmware
+ * Copyright (C) 2016 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+ *
+ * Based on Sprinter and grbl.
+ * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+
 #ifndef ULTRALCD_IMPLEMENTATION_HITACHI_HD44780_H
 #define ULTRALCD_IMPLEMENTATION_HITACHI_HD44780_H
 
@@ -5,7 +27,6 @@
 * Implementation of the LCD display routines for a Hitachi HD44780 display. These are common LCD character displays.
 **/
 
-static unsigned char blink = 0; // Variable for animation
 extern volatile uint8_t buttons;  //an extended version of the last checked buttons in a bit array.
 
 ////////////////////////////////////
@@ -23,7 +44,7 @@ extern volatile uint8_t buttons;  //an extended version of the last checked butt
   #define EN_B (_BV(BLEN_B)) // The two encoder pins are connected through BTN_EN1 and BTN_EN2
   #define EN_A (_BV(BLEN_A))
 
-  #if defined(BTN_ENC) && BTN_ENC > -1
+  #if BUTTON_EXISTS(ENC)
     // encoder click is directly connected
     #define BLEN_C 2
     #define EN_C (_BV(BLEN_C))
@@ -42,7 +63,7 @@ extern volatile uint8_t buttons;  //an extended version of the last checked butt
     #define B_DW (BUTTON_DOWN<<B_I2C_BTN_OFFSET)
     #define B_RI (BUTTON_RIGHT<<B_I2C_BTN_OFFSET)
 
-    #if defined(BTN_ENC) && BTN_ENC > -1
+    #if BUTTON_EXISTS(ENC)
       // the pause/stop/restart button is connected to BTN_ENC when used
       #define B_ST (EN_C)                            // Map the pause/stop/resume button into its normalized functional name
       #undef LCD_CLICKED
@@ -56,8 +77,14 @@ extern volatile uint8_t buttons;  //an extended version of the last checked butt
     #define LCD_HAS_SLOW_BUTTONS
 
   #elif ENABLED(LCD_I2C_PANELOLU2)
-    // encoder click can be read through I2C if not directly connected
-    #if BTN_ENC <= 0
+
+    #if BUTTON_EXISTS(ENC)
+
+      #undef LCD_CLICKED
+      #define LCD_CLICKED (buttons&EN_C)
+
+    #else // Read through I2C if not directly connected to a pin
+
       #define B_I2C_BTN_OFFSET 3 // (the first three bit positions reserved for EN_A, EN_B, EN_C)
 
       #define B_MI (PANELOLU2_ENCODER_C<<B_I2C_BTN_OFFSET) // requires LiquidTWI2 library v1.2.3 or later
@@ -67,9 +94,7 @@ extern volatile uint8_t buttons;  //an extended version of the last checked butt
 
       // I2C buttons take too long to read inside an interrupt context and so we read them during lcd_update
       #define LCD_HAS_SLOW_BUTTONS
-    #else
-      #undef LCD_CLICKED
-      #define LCD_CLICKED (buttons&EN_C)
+
     #endif
 
   #elif ENABLED(REPRAPWORLD_KEYPAD)
@@ -137,7 +162,7 @@ extern volatile uint8_t buttons;  //an extended version of the last checked butt
   #define LCD_I2C_PIN_D5  5
   #define LCD_I2C_PIN_D6  6
   #define LCD_I2C_PIN_D7  7
-  
+
   #include <Wire.h>
   #include <LCD.h>
   #include <LiquidCrystal_I2C.h>
@@ -184,6 +209,12 @@ extern volatile uint8_t buttons;  //an extended version of the last checked butt
   #include <LiquidCrystal_SR.h>
   #define LCD_CLASS LiquidCrystal_SR
   LCD_CLASS lcd(SR_DATA_PIN, SR_CLK_PIN);
+#elif ENABLED(LCM1602)
+  #include <Wire.h>
+  #include <LCD.h>
+  #include <LiquidCrystal_I2C.h>
+  #define LCD_CLASS LiquidCrystal_I2C
+  LCD_CLASS lcd(0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);
 #else
   // Standard directly connected LCD implementations
   #include <LiquidCrystal.h>
@@ -366,7 +397,7 @@ static void lcd_implementation_init(
     lcd.begin(LCD_WIDTH, LCD_HEIGHT);
     #ifdef LCD_I2C_PIN_BL
       lcd.setBacklightPin(LCD_I2C_PIN_BL, POSITIVE);
-      lcd_implementation_update_indicators();
+      lcd.setBacklight(HIGH);
     #endif
 
   #elif ENABLED(LCD_I2C_TYPE_MCP23017)
@@ -408,7 +439,7 @@ char lcd_printPGM(const char* str) {
   return n;
 }
 
-char lcd_print(char* str) {
+char lcd_print(const char* str) {
   char c, n = 0;
   unsigned char i = 0;
   while ((c = str[i++])) n += charset_mapper(c);
@@ -420,7 +451,7 @@ unsigned lcd_print(char c) { return charset_mapper(c); }
 #if ENABLED(SHOW_BOOTSCREEN)
 
   void lcd_erase_line(int line) {
-    lcd.setCursor(0, 3);
+    lcd.setCursor(0, line);
     for (int i = 0; i < LCD_WIDTH; i++)
       lcd_print(' ');
   }
@@ -506,7 +537,7 @@ unsigned lcd_print(char c) { return charset_mapper(c); }
 
 #endif // SHOW_BOOTSCREEN
 
-/*
+/**
 Possible status screens:
 16x2   |000/000 B000/000|
        |0123456789012345|
@@ -599,6 +630,8 @@ static void lcd_implementation_status_screen() {
 
   #if LCD_HEIGHT > 2
 
+    bool blink = lcd_blink();
+
     #if LCD_WIDTH < 20
 
       #if ENABLED(SDSUPPORT)
@@ -627,12 +660,12 @@ static void lcd_implementation_status_screen() {
         // When axis is homed but axis_known_position is false the axis letters are blinking 'X' <-> ' '.
         // When everything is ok you see a constant 'X'.
 
-        if (blink & 1)
+        if (blink)
           lcd_printPGM(PSTR("X"));
         else {
           if (!axis_homed[X_AXIS])
             lcd_printPGM(PSTR("?"));
-          else 
+          else
             #if DISABLED(DISABLE_REDUCED_ACCURACY_WARNING)
               if (!axis_known_position[X_AXIS])
                 lcd_printPGM(PSTR(" "));
@@ -644,12 +677,12 @@ static void lcd_implementation_status_screen() {
         lcd.print(ftostr4sign(current_position[X_AXIS]));
 
         lcd_printPGM(PSTR(" "));
-        if (blink & 1)
+        if (blink)
           lcd_printPGM(PSTR("Y"));
         else {
           if (!axis_homed[Y_AXIS])
             lcd_printPGM(PSTR("?"));
-          else 
+          else
             #if DISABLED(DISABLE_REDUCED_ACCURACY_WARNING)
               if (!axis_known_position[Y_AXIS])
                 lcd_printPGM(PSTR(" "));
@@ -664,12 +697,12 @@ static void lcd_implementation_status_screen() {
     #endif // LCD_WIDTH >= 20
 
     lcd.setCursor(LCD_WIDTH - 8, 1);
-    if (blink & 1)
+    if (blink)
       lcd_printPGM(PSTR("Z"));
     else {
       if (!axis_homed[Z_AXIS])
         lcd_printPGM(PSTR("?"));
-      else 
+      else
         #if DISABLED(DISABLE_REDUCED_ACCURACY_WARNING)
           if (!axis_known_position[Z_AXIS])
             lcd_printPGM(PSTR(" "));
@@ -707,7 +740,8 @@ static void lcd_implementation_status_screen() {
     lcd.setCursor(LCD_WIDTH - 6, 2);
     lcd.print(LCD_STR_CLOCK[0]);
     if (print_job_start_ms != 0) {
-      uint16_t time = millis() / 60000 - print_job_start_ms / 60000;
+      uint16_t time = (((print_job_stop_ms > print_job_start_ms)
+                       ? print_job_stop_ms : millis()) - print_job_start_ms) / 60000;
       lcd.print(itostr2(time / 60));
       lcd.print(':');
       lcd.print(itostr2(time % 60));
@@ -731,7 +765,7 @@ static void lcd_implementation_status_screen() {
       // Draw the progress bar if the message has shown long enough
       // or if there is no message set.
       if (millis() >= progress_bar_ms + PROGRESS_BAR_MSG_TIME || !lcd_status_message[0]) {
-        int tix = (int)(card.percentDone() * LCD_WIDTH * 3) / 100,
+        int tix = (int)(card.percentDone() * (LCD_WIDTH) * 3) / 100,
           cel = tix / 3, rem = tix % 3, i = LCD_WIDTH;
         char msg[LCD_WIDTH + 1], b = ' ';
         msg[i] = '\0';
@@ -826,12 +860,14 @@ static void lcd_implementation_drawmenu_setting_edit_generic_P(bool sel, uint8_t
 #define lcd_implementation_drawmenu_setting_edit_callback_long5(sel, row, pstr, pstr2, data, minValue, maxValue, callback) lcd_implementation_drawmenu_setting_edit_generic(sel, row, pstr, '>', ftostr5(*(data)))
 #define lcd_implementation_drawmenu_setting_edit_callback_bool(sel, row, pstr, pstr2, data, callback) lcd_implementation_drawmenu_setting_edit_generic_P(sel, row, pstr, '>', (*(data))?PSTR(MSG_ON):PSTR(MSG_OFF))
 
-void lcd_implementation_drawedit(const char* pstr, char* value) {
+void lcd_implementation_drawedit(const char* pstr, const char* value) {
   lcd.setCursor(1, 1);
   lcd_printPGM(pstr);
-  lcd.print(':');
-  lcd.setCursor(LCD_WIDTH - lcd_strlen(value), 1);
-  lcd_print(value);
+  if (value != NULL) {
+    lcd.print(':');
+    lcd.setCursor(LCD_WIDTH - lcd_strlen(value), 1);
+    lcd_print(value);
+  }
 }
 
 #if ENABLED(SDSUPPORT)
@@ -874,16 +910,34 @@ void lcd_implementation_drawedit(const char* pstr, char* value) {
     // Set the LEDS - referred to as backlights by the LiquidTWI2 library
     static uint8_t ledsprev = 0;
     uint8_t leds = 0;
+
     if (target_temperature_bed > 0) leds |= LED_A;
+
     if (target_temperature[0] > 0) leds |= LED_B;
-    if (fanSpeed) leds |= LED_C;
+
+    #if FAN_COUNT > 0
+      if (0
+        #if HAS_FAN0
+          || fanSpeeds[0]
+        #endif
+        #if HAS_FAN1
+          || fanSpeeds[1]
+        #endif
+        #if HAS_FAN2
+          || fanSpeeds[2]
+        #endif
+      ) leds |= LED_C;
+    #endif // FAN_COUNT > 0
+
     #if EXTRUDERS > 1
       if (target_temperature[1] > 0) leds |= LED_C;
     #endif
+
     if (leds != ledsprev) {
       lcd.setBacklight(leds);
       ledsprev = leds;
     }
+
   }
 
 #endif // LCD_HAS_STATUS_INDICATORS
@@ -894,16 +948,15 @@ void lcd_implementation_drawedit(const char* pstr, char* value) {
 
   static uint8_t lcd_implementation_read_slow_buttons() {
     #if ENABLED(LCD_I2C_TYPE_MCP23017)
-      uint8_t slow_buttons;
       // Reading these buttons this is likely to be too slow to call inside interrupt context
       // so they are called during normal lcd_update
-      slow_buttons = lcd.readButtons() << B_I2C_BTN_OFFSET;
+      uint8_t slow_bits = lcd.readButtons() << B_I2C_BTN_OFFSET;
       #if ENABLED(LCD_I2C_VIKI)
-        if ((slow_buttons & (B_MI | B_RI)) && millis() < next_button_update_ms) // LCD clicked
-          slow_buttons &= ~(B_MI | B_RI); // Disable LCD clicked buttons if screen is updated
-      #endif
-      return slow_buttons;
-    #endif
+        if ((slow_bits & (B_MI | B_RI)) && millis() < next_button_update_ms) // LCD clicked
+          slow_bits &= ~(B_MI | B_RI); // Disable LCD clicked buttons if screen is updated
+      #endif // LCD_I2C_VIKI
+      return slow_bits;
+    #endif // LCD_I2C_TYPE_MCP23017
   }
 
 #endif // LCD_HAS_SLOW_BUTTONS

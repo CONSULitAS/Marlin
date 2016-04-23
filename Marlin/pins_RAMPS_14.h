@@ -1,4 +1,26 @@
 /**
+ * Marlin 3D Printer Firmware
+ * Copyright (C) 2016 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+ *
+ * Based on Sprinter and grbl.
+ * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+
+/**
  * Arduino Mega with RAMPS v1.4 (or v1.3) pin assignments
  *
  * Applies to the following boards:
@@ -14,7 +36,7 @@
  *  RAMPS_13_EFF (Extruder, Fan, Fan)
  *  RAMPS_13_EEF (Extruder, Extruder, Fan)
  *  RAMPS_13_SF  (Spindle, Controller Fan)
- * 
+ *
  *  Other pins_MYBOARD.h files may override these defaults
  *
  *  Differences between
@@ -69,11 +91,8 @@
 #define SDSS               53
 #define LED_PIN            13
 
-#if ENABLED(FILAMENT_SENSOR)  // FMM added for Filament Extruder
-  // define analog pin for the filament width sensor input
-  // Use the RAMPS 1.4 Analog input 5 on the AUX2 connector
-  #define FILWIDTH_PIN      5
-#endif
+// Use the RAMPS 1.4 Analog input 5 on the AUX2 connector
+#define FILWIDTH_PIN        5 // ANALOG NUMBERING
 
 #if ENABLED(Z_MIN_PROBE_ENDSTOP)
   // Define a pin to use as the signal pin on Arduino for the Z_PROBE endstop.
@@ -258,7 +277,7 @@
 
 #endif // ULTRA_LCD
 
-// SPI for Max6675 Thermocouple
+// SPI for Max6675 or Max31855 Thermocouple
 #if DISABLED(SDSUPPORT)
   #define MAX6675_SS       66 // Do not use pin 53 if there is even the remote possibility of using Display/SD card
 #else

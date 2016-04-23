@@ -1,7 +1,40 @@
+/**
+ * Marlin 3D Printer Firmware
+ * Copyright (C) 2016 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+ *
+ * Based on Sprinter and grbl.
+ * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+
 // Example configuration file for OpenBeam Kossel Pro
 // tested on 2015-05-19 by @Wackerbarth
 // using Arduino 1.6.5 (Mac)
 
+
+/**
+ * Configuration_adv.h
+ *
+ * Advanced settings.
+ * Only change these if you know exactly what you're doing.
+ * Some of these settings can damage your printer if improperly set!
+ *
+ * Basic settings can be found in Configuration.h
+ *
+ */
 #ifndef CONFIGURATION_ADV_H
 #define CONFIGURATION_ADV_H
 
@@ -13,13 +46,26 @@
 //=============================Thermal Settings  ============================
 //===========================================================================
 
-#if ENABLED(BED_LIMIT_SWITCHING)
-  #define BED_HYSTERESIS 2 //only disable heating if T>target+BED_HYSTERESIS and enable heating if T>target-BED_HYSTERESIS
+#if DISABLED(PIDTEMPBED)
+  #define BED_CHECK_INTERVAL 5000 // ms between checks in bang-bang control
+  #if ENABLED(BED_LIMIT_SWITCHING)
+    #define BED_HYSTERESIS 2 // Only disable heating if T>target+BED_HYSTERESIS and enable heating if T>target-BED_HYSTERESIS
+  #endif
 #endif
-#define BED_CHECK_INTERVAL 5000 //ms between checks in bang-bang control
 
 /**
- * Thermal Protection parameters
+ * Thermal Protection protects your printer from damage and fire if a
+ * thermistor falls out or temperature sensors fail in any way.
+ *
+ * The issue: If a thermistor falls out or a temperature sensor fails,
+ * Marlin can no longer sense the actual temperature. Since a disconnected
+ * thermistor reads as a low temperature, the firmware will keep the heater on.
+ *
+ * The solution: Once the temperature reaches the target, start observing.
+ * If the temperature stays too far below the target (hysteresis) for too long (period),
+ * the firmware will halt the machine as a safety precaution.
+ *
+ * If you get false positives for "Thermal Runaway" increase THERMAL_PROTECTION_HYSTERESIS and/or THERMAL_PROTECTION_PERIOD
  */
 #if ENABLED(THERMAL_PROTECTION_HOTENDS)
   #define THERMAL_PROTECTION_PERIOD 40        // Seconds
@@ -30,11 +76,19 @@
    * WATCH_TEMP_PERIOD to expire, and if the temperature hasn't increased by WATCH_TEMP_INCREASE
    * degrees, the machine is halted, requiring a hard reset. This test restarts with any M104/M109,
    * but only if the current temperature is far enough below the target for a reliable test.
+   *
+   * If you get false positives for "Heating failed" increase WATCH_TEMP_PERIOD and/or decrease WATCH_TEMP_INCREASE
+   * WATCH_TEMP_INCREASE should not be below 2.
    */
-  #define WATCH_TEMP_PERIOD 16                // Seconds
-  #define WATCH_TEMP_INCREASE 4               // Degrees Celsius
+  #define WATCH_TEMP_PERIOD 20                // Seconds
+  #define WATCH_TEMP_INCREASE 2               // Degrees Celsius
 #endif
 
+/**
+ * Thermal Protection parameters for the bed
+ * are like the above for the hotends.
+ * WATCH_TEMP_BED_PERIOD and WATCH_TEMP_BED_INCREASE are not imlemented now.
+ */
 #if ENABLED(THERMAL_PROTECTION_BED)
   #define THERMAL_PROTECTION_BED_PERIOD 20    // Seconds
   #define THERMAL_PROTECTION_BED_HYSTERESIS 2 // Degrees Celsius
@@ -279,6 +333,9 @@
 // Motor Current setting (Only functional when motor driver current ref pins are connected to a digital trimpot on supported boards)
 #define DIGIPOT_MOTOR_CURRENT {135,135,135,135,135} // Values 0-255 (RAMBO 135 = ~0.75A, 185 = ~1A)
 
+// Motor Current controlled via PWM (Overridable on supported boards with PWM-driven motor driver current)
+//#define PWM_MOTOR_CURRENT {1300, 1300, 1250} // Values in milliamps
+
 // uncomment to enable an I2C based DIGIPOT like on the Azteeg X3 Pro
 //#define DIGIPOT_I2C
 // Number of channels available for I2C digipot, For Azteeg X3 Pro we have 8
@@ -372,7 +429,7 @@
 //#define BABYSTEPPING
 #if ENABLED(BABYSTEPPING)
   #define BABYSTEP_XY  //not only z, but also XY in the menu. more clutter, more functions
-                       //not implemented for CoreXY and deltabots!
+                       //not implemented for deltabots!
   #define BABYSTEP_INVERT_Z false  //true for inverse movements in Z
   #define BABYSTEP_MULTIPLICATOR 1 //faster movements
 #endif
