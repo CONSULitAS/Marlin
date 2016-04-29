@@ -4473,6 +4473,8 @@ inline void gcode_M109() {
     #define TEMP_CONDITIONS (wants_to_cool ? isCoolingHotend(target_extruder) : isHeatingHotend(target_extruder))
   #endif //TEMP_RESIDENCY_TIME > 0
 
+  KEEPALIVE_STATE(NOT_BUSY);
+
   cancel_heatup = false;
   millis_t now, next_temp_ms = 0;
   do {
@@ -4517,6 +4519,7 @@ inline void gcode_M109() {
   } while (!cancel_heatup && TEMP_CONDITIONS);
 
   LCD_MESSAGEPGM(MSG_HEATING_COMPLETE);
+  KEEPALIVE_STATE(IN_HANDLER);
 }
 
 #if HAS_TEMP_BED
@@ -4550,6 +4553,7 @@ inline void gcode_M109() {
     millis_t now, next_temp_ms = 0;
 
     // Wait for temperature to come close enough
+    KEEPALIVE_STATE(NOT_BUSY);
     do {
       now = millis();
       if (ELAPSED(now, next_temp_ms)) { //Print Temp Reading every 1 second while heating up.
@@ -4589,6 +4593,7 @@ inline void gcode_M109() {
 
     } while (!cancel_heatup && TEMP_BED_CONDITIONS);
     LCD_MESSAGEPGM(MSG_BED_DONE);
+    KEEPALIVE_STATE(IN_HANDLER);
   }
 
 #endif // HAS_TEMP_BED
