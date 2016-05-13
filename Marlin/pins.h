@@ -140,7 +140,7 @@
 #elif MB(SAINSMART_2IN1)
   #include "pins_SAINSMART_2IN1.h"
 #else
-  #error Unknown MOTHERBOARD value set in Configuration.h
+  #error "Unknown MOTHERBOARD value set in Configuration.h"
 #endif
 
 // Define certain undefined pins
