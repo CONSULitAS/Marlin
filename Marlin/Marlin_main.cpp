@@ -3003,7 +3003,7 @@ inline void gcode_G28() {
       return;
     }
 
-    int ix, iy;
+    int8_t ix, iy;
     float z;
 
     switch (state) {
