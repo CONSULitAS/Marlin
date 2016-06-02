@@ -1698,7 +1698,12 @@ static void setup_for_endstop_move() {
   }
 
   inline void raise_z_after_probing() {
-    do_blocking_move_to_z(current_position[Z_AXIS] + Z_RAISE_AFTER_PROBING);
+    #if Z_RAISE_AFTER_PROBING > 0
+      #if ENABLED(DEBUG_LEVELING_FEATURE)
+        if (DEBUGGING(LEVELING)) SERIAL_ECHOLNPGM("raise_z_after_probing()");
+      #endif
+      do_blocking_move_to_z(current_position[Z_AXIS] + Z_RAISE_AFTER_PROBING);
+    #endif
   }
 
   static void clean_up_after_endstop_move() {
@@ -1824,14 +1829,6 @@ static void setup_for_endstop_move() {
 
         #if Z_RAISE_AFTER_PROBING > 0
           if (doRaise) {
-            #if ENABLED(DEBUG_LEVELING_FEATURE)
-              if (DEBUGGING(LEVELING)) {
-                SERIAL_ECHOPAIR("Raise Z (after) by ", Z_RAISE_AFTER_PROBING);
-                SERIAL_EOL;
-                SERIAL_ECHO("> SERVO_ENDSTOPS > raise_z_after_probing()");
-                SERIAL_EOL;
-              }
-            #endif
             raise_z_after_probing(); // this also updates current_position
             stepper.synchronize();
           }
@@ -2119,9 +2116,7 @@ static void setup_for_endstop_move() {
 
     float oldXpos = current_position[X_AXIS]; // save x position
     if (dock) {
-      #if Z_RAISE_AFTER_PROBING > 0
-        raise_z_after_probing(); // raise Z
-      #endif
+      raise_z_after_probing(); // raise Z
       // Dock sled a bit closer to ensure proper capturing
       do_blocking_move_to_x(X_MAX_POS + SLED_DOCKING_OFFSET + offset - 1);
       digitalWrite(SLED_PIN, LOW); // turn off magnet
@@ -3580,7 +3575,7 @@ inline void gcode_G28() {
       // Allen Key Probe for Delta
       #if ENABLED(Z_PROBE_ALLEN_KEY) || SERVO_LEVELING
         stow_z_probe();
-      #elif Z_RAISE_AFTER_PROBING > 0
+      #else
         raise_z_after_probing(); // for non Allen Key probes, such as simple mechanical probe
       #endif
     #else // !DELTA
@@ -3655,7 +3650,7 @@ inline void gcode_G28() {
       // Sled assembly for Cartesian bots
       #if ENABLED(Z_PROBE_SLED)
         dock_sled(true); // dock the sled
-      #elif Z_RAISE_AFTER_PROBING > 0
+      #else
         // Raise Z axis for non-delta and non servo based probes
         #if DISABLED(HAS_SERVO_ENDSTOPS) && DISABLED(Z_PROBE_ALLEN_KEY) && DISABLED(Z_PROBE_SLED)
           raise_z_after_probing();
