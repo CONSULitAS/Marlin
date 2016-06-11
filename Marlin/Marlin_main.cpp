@@ -530,6 +530,7 @@ void stop();
 
 void get_available_commands();
 void process_next_command();
+void prepare_move_to_destination();
 
 #if ENABLED(ARC_SUPPORT)
   void plan_arc(float target[NUM_AXIS], float* offset, uint8_t clockwise);
@@ -1570,9 +1571,9 @@ static void setup_for_endstop_move() {
     /**
      * Calculate delta, start a line, and set current_position to destination
      */
-    void prepare_move_raw() {
+    void prepare_move_to_destination_raw() {
       #if ENABLED(DEBUG_LEVELING_FEATURE)
-        if (DEBUGGING(LEVELING)) DEBUG_POS("prepare_move_raw", destination);
+        if (DEBUGGING(LEVELING)) DEBUG_POS("prepare_move_to_destination_raw", destination);
       #endif
       refresh_cmd_timeout();
       calculate_delta(destination);
@@ -1676,7 +1677,7 @@ static void setup_for_endstop_move() {
       // move down slowly until you find the bed
       feedrate = homing_feedrate[Z_AXIS] / 4;
       destination[Z_AXIS] = -10;
-      prepare_move_raw(); // this will also set_current_to_destination
+      prepare_move_to_destination_raw(); // this will also set_current_to_destination
       stepper.synchronize();
       endstops.hit_on_purpose(); // clear endstop hit flags
 
@@ -1756,9 +1757,9 @@ static void setup_for_endstop_move() {
       destination[Z_AXIS] = z;
 
       if (x == current_position[X_AXIS] && y == current_position[Y_AXIS])
-        prepare_move_raw(); // this will also set_current_to_destination
+        prepare_move_to_destination_raw(); // this will also set_current_to_destination
       else
-        prepare_move();     // this will also set_current_to_destination
+        prepare_move_to_destination();     // this will also set_current_to_destination
 
       stepper.synchronize();
 
@@ -1845,7 +1846,7 @@ static void setup_for_endstop_move() {
           destination[X_AXIS] = Z_PROBE_ALLEN_KEY_DEPLOY_1_X;
           destination[Y_AXIS] = Z_PROBE_ALLEN_KEY_DEPLOY_1_Y;
           destination[Z_AXIS] = Z_PROBE_ALLEN_KEY_DEPLOY_1_Z;
-          prepare_move_raw(); // this will also set_current_to_destination
+          prepare_move_to_destination_raw(); // this will also set_current_to_destination
 
           // Move to engage deployment
           if (Z_PROBE_ALLEN_KEY_DEPLOY_2_FEEDRATE != Z_PROBE_ALLEN_KEY_DEPLOY_1_FEEDRATE)
@@ -1856,7 +1857,7 @@ static void setup_for_endstop_move() {
             destination[Y_AXIS] = Z_PROBE_ALLEN_KEY_DEPLOY_2_Y;
           if (Z_PROBE_ALLEN_KEY_DEPLOY_2_Z != Z_PROBE_ALLEN_KEY_DEPLOY_1_Z)
             destination[Z_AXIS] = Z_PROBE_ALLEN_KEY_DEPLOY_2_Z;
-          prepare_move_raw();
+          prepare_move_to_destination_raw();
 
           #ifdef Z_PROBE_ALLEN_KEY_DEPLOY_3_X
             if (Z_PROBE_ALLEN_KEY_DEPLOY_3_FEEDRATE != Z_PROBE_ALLEN_KEY_DEPLOY_2_FEEDRATE)
@@ -1872,14 +1873,14 @@ static void setup_for_endstop_move() {
             if (Z_PROBE_ALLEN_KEY_DEPLOY_3_Z != Z_PROBE_ALLEN_KEY_DEPLOY_2_Z)
               destination[Z_AXIS] = Z_PROBE_ALLEN_KEY_DEPLOY_3_Z;
 
-            prepare_move_raw();
+            prepare_move_to_destination_raw();
           #endif
         }
 
       // Partially Home X,Y for safety
       destination[X_AXIS] = destination[X_AXIS] * 0.75;
       destination[Y_AXIS] = destination[Y_AXIS] * 0.75;
-      prepare_move_raw(); // this will also set_current_to_destination
+      prepare_move_to_destination_raw(); // this will also set_current_to_destination
 
       stepper.synchronize();
 
@@ -1942,14 +1943,14 @@ static void setup_for_endstop_move() {
 
       #if Z_RAISE_AFTER_PROBING > 0
         destination[Z_AXIS] = current_position[Z_AXIS] + Z_RAISE_AFTER_PROBING;
-        prepare_move_raw(); // this will also set_current_to_destination
+        prepare_move_to_destination_raw(); // this will also set_current_to_destination
       #endif
 
       // Move to the start position to initiate retraction
       destination[X_AXIS] = Z_PROBE_ALLEN_KEY_STOW_1_X;
       destination[Y_AXIS] = Z_PROBE_ALLEN_KEY_STOW_1_Y;
       destination[Z_AXIS] = Z_PROBE_ALLEN_KEY_STOW_1_Z;
-      prepare_move_raw();
+      prepare_move_to_destination_raw();
 
       // Move the nozzle down to push the Z probe into retracted position
       if (Z_PROBE_ALLEN_KEY_STOW_2_FEEDRATE != Z_PROBE_ALLEN_KEY_STOW_1_FEEDRATE)
@@ -1959,7 +1960,7 @@ static void setup_for_endstop_move() {
       if (Z_PROBE_ALLEN_KEY_STOW_2_Y != Z_PROBE_ALLEN_KEY_STOW_1_Y)
         destination[Y_AXIS] = Z_PROBE_ALLEN_KEY_STOW_2_Y;
       destination[Z_AXIS] = Z_PROBE_ALLEN_KEY_STOW_2_Z;
-      prepare_move_raw();
+      prepare_move_to_destination_raw();
 
       // Move up for safety
       if (Z_PROBE_ALLEN_KEY_STOW_3_FEEDRATE != Z_PROBE_ALLEN_KEY_STOW_2_FEEDRATE)
@@ -1969,13 +1970,13 @@ static void setup_for_endstop_move() {
       if (Z_PROBE_ALLEN_KEY_STOW_3_Y != Z_PROBE_ALLEN_KEY_STOW_2_Y)
         destination[Y_AXIS] = Z_PROBE_ALLEN_KEY_STOW_3_Y;
       destination[Z_AXIS] = Z_PROBE_ALLEN_KEY_STOW_3_Z;
-      prepare_move_raw();
+      prepare_move_to_destination_raw();
 
       // Home XY for safety
       feedrate = homing_feedrate[X_AXIS] / 2;
       destination[X_AXIS] = 0;
       destination[Y_AXIS] = 0;
-      prepare_move_raw(); // this will also set_current_to_destination
+      prepare_move_to_destination_raw(); // this will also set_current_to_destination
 
       stepper.synchronize();
 
@@ -2470,7 +2471,7 @@ static void homeaxis(AxisEnum axis) {
       feedrate = retract_feedrate * 60;
       current_position[E_AXIS] += (swapping ? retract_length_swap : retract_length) / volumetric_multiplier[active_extruder];
       sync_plan_position_e();
-      prepare_move();
+      prepare_move_to_destination();
 
       if (retract_zlift > 0.01) {
         current_position[Z_AXIS] -= retract_zlift;
@@ -2479,7 +2480,7 @@ static void homeaxis(AxisEnum axis) {
         #else
           sync_plan_position();
         #endif
-        prepare_move();
+        prepare_move_to_destination();
       }
     }
     else {
@@ -2497,7 +2498,7 @@ static void homeaxis(AxisEnum axis) {
       float move_e = swapping ? retract_length_swap + retract_recover_length_swap : retract_length + retract_recover_length;
       current_position[E_AXIS] -= move_e / volumetric_multiplier[active_extruder];
       sync_plan_position_e();
-      prepare_move();
+      prepare_move_to_destination();
     }
 
     feedrate = oldFeedrate;
@@ -2595,7 +2596,7 @@ inline void gcode_G0_G1() {
 
     #endif //FWRETRACT
 
-    prepare_move();
+    prepare_move_to_destination();
   }
 }
 
@@ -5896,7 +5897,7 @@ inline void gcode_M303() {
       calculate_SCARA_forward_Transform(delta);
       destination[X_AXIS] = delta[X_AXIS] / axis_scaling[X_AXIS];
       destination[Y_AXIS] = delta[Y_AXIS] / axis_scaling[Y_AXIS];
-      prepare_move();
+      prepare_move_to_destination();
       //ok_to_send();
       return true;
     }
@@ -6735,7 +6736,7 @@ inline void gcode_T(uint8_t tmp_extruder) {
       #endif
 
       // Move to the "old position" (move the extruder into place)
-      if (IsRunning()) prepare_move();
+      if (IsRunning()) prepare_move_to_destination();
 
     } // (tmp_extruder != active_extruder)
 
@@ -7626,32 +7627,9 @@ void mesh_buffer_line(float x, float y, float z, const float e, float feed_rate,
 }
 #endif  // MESH_BED_LEVELING
 
-#if ENABLED(PREVENT_DANGEROUS_EXTRUDE)
-
-  inline void prevent_dangerous_extrude(float& curr_e, float& dest_e) {
-    if (DEBUGGING(DRYRUN)) return;
-    float de = dest_e - curr_e;
-    if (de) {
-      if (thermalManager.tooColdToExtrude(active_extruder)) {
-        curr_e = dest_e; // Behave as if the move really took place, but ignore E part
-        SERIAL_ECHO_START;
-        SERIAL_ECHOLNPGM(MSG_ERR_COLD_EXTRUDE_STOP);
-      }
-      #if ENABLED(PREVENT_LENGTHY_EXTRUDE)
-        if (labs(de) > EXTRUDE_MAXLENGTH) {
-          curr_e = dest_e; // Behave as if the move really took place, but ignore E part
-          SERIAL_ECHO_START;
-          SERIAL_ECHOLNPGM(MSG_ERR_LONG_EXTRUDE_STOP);
-        }
-      #endif
-    }
-  }
-
-#endif // PREVENT_DANGEROUS_EXTRUDE
-
 #if ENABLED(DELTA) || ENABLED(SCARA)
 
-  inline bool prepare_move_delta(float target[NUM_AXIS]) {
+  inline bool prepare_delta_move_to(float target[NUM_AXIS]) {
     float difference[NUM_AXIS];
     for (int8_t i = 0; i < NUM_AXIS; i++) difference[i] = target[i] - current_position[i];
 
@@ -7680,8 +7658,8 @@ void mesh_buffer_line(float x, float y, float z, const float e, float feed_rate,
         if (!bed_leveling_in_progress) adjust_delta(target);
       #endif
 
-      //DEBUG_POS("prepare_move_delta", target);
-      //DEBUG_POS("prepare_move_delta", delta);
+      //DEBUG_POS("prepare_delta_move_to", target);
+      //DEBUG_POS("prepare_delta_move_to", delta);
 
       planner.buffer_line(delta[X_AXIS], delta[Y_AXIS], delta[Z_AXIS], target[E_AXIS], _feedrate, active_extruder);
     }
@@ -7691,7 +7669,7 @@ void mesh_buffer_line(float x, float y, float z, const float e, float feed_rate,
 #endif // DELTA || SCARA
 
 #if ENABLED(SCARA)
-  inline bool prepare_move_scara(float target[NUM_AXIS]) { return prepare_move_delta(target); }
+  inline bool prepare_scara_move_to(float target[NUM_AXIS]) { return prepare_delta_move_to(target); }
 #endif
 
 #if ENABLED(DUAL_X_CARRIAGE)
@@ -7735,7 +7713,7 @@ void mesh_buffer_line(float x, float y, float z, const float e, float feed_rate,
 
 #if DISABLED(DELTA) && DISABLED(SCARA)
 
-  inline bool prepare_move_cartesian() {
+  inline bool prepare_cartesian_move_to_destination() {
     // Do not use feedrate_multiplier for E or Z only moves
     if (current_position[X_AXIS] == destination[X_AXIS] && current_position[Y_AXIS] == destination[Y_AXIS]) {
       line_to_destination();
@@ -7753,13 +7731,36 @@ void mesh_buffer_line(float x, float y, float z, const float e, float feed_rate,
 
 #endif // !DELTA && !SCARA
 
+#if ENABLED(PREVENT_DANGEROUS_EXTRUDE)
+
+  inline void prevent_dangerous_extrude(float& curr_e, float& dest_e) {
+    if (DEBUGGING(DRYRUN)) return;
+    float de = dest_e - curr_e;
+    if (de) {
+      if (thermalManager.tooColdToExtrude(active_extruder)) {
+        curr_e = dest_e; // Behave as if the move really took place, but ignore E part
+        SERIAL_ECHO_START;
+        SERIAL_ECHOLNPGM(MSG_ERR_COLD_EXTRUDE_STOP);
+      }
+      #if ENABLED(PREVENT_LENGTHY_EXTRUDE)
+        if (labs(de) > EXTRUDE_MAXLENGTH) {
+          curr_e = dest_e; // Behave as if the move really took place, but ignore E part
+          SERIAL_ECHO_START;
+          SERIAL_ECHOLNPGM(MSG_ERR_LONG_EXTRUDE_STOP);
+        }
+      #endif
+    }
+  }
+
+#endif // PREVENT_DANGEROUS_EXTRUDE
+
 /**
  * Prepare a single move and get ready for the next one
  *
  * (This may call planner.buffer_line several times to put
  *  smaller moves into the planner for DELTA or SCARA.)
  */
-void prepare_move() {
+void prepare_move_to_destination() {
   clamp_to_software_endstops(destination);
   refresh_cmd_timeout();
 
@@ -7768,14 +7769,14 @@ void prepare_move() {
   #endif
 
   #if ENABLED(SCARA)
-    if (!prepare_move_scara(destination)) return;
+    if (!prepare_scara_move_to(destination)) return;
   #elif ENABLED(DELTA)
-    if (!prepare_move_delta(destination)) return;
+    if (!prepare_delta_move_to(destination)) return;
   #else
     #if ENABLED(DUAL_X_CARRIAGE)
       if (!prepare_move_dual_x_carriage()) return;
     #endif
-    if (!prepare_move_cartesian()) return;
+    if (!prepare_cartesian_move_to_destination()) return;
   #endif
 
   set_current_to_destination();
@@ -8291,7 +8292,7 @@ void manage_inactivity(bool ignore_stepper_queue/*=false*/) {
       // travel moves have been received so enact them
       delayed_move_time = 0xFFFFFFFFUL; // force moves to be done
       set_destination_to_current();
-      prepare_move();
+      prepare_move_to_destination();
     }
   #endif
 
