@@ -858,8 +858,6 @@ void setup() {
   // loads data from EEPROM if available else uses defaults (and resets step acceleration rate)
   Config_RetrieveSettings();
 
-  lcd_init();
-
   thermalManager.init();    // Initialize temperature loop
 
   #if ENABLED(DELTA) || ENABLED(SCARA)
@@ -907,6 +905,18 @@ void setup() {
     pinMode(STAT_LED_BLUE, OUTPUT);
     digitalWrite(STAT_LED_BLUE, LOW); // turn it off
   #endif
+
+  lcd_init();
+  #if ENABLED(SHOW_BOOTSCREEN)
+    #if ENABLED(DOGLCD)
+      delay(1000);
+    #elif ENABLED(ULTRA_LCD)
+      bootscreen();
+      lcd_init();
+    #endif
+  #endif
+
+
 }
 
 /**
@@ -8314,6 +8324,7 @@ void manage_inactivity(bool ignore_stepper_queue/*=false*/) {
 
 void kill(const char* lcd_msg) {
   #if ENABLED(ULTRA_LCD)
+    lcd_init();
     lcd_setalertstatuspgm(lcd_msg);
   #else
     UNUSED(lcd_msg);
