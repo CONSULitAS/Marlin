@@ -6500,7 +6500,7 @@ inline void gcode_M503() {
    */
   inline void gcode_M905() {
     stepper.synchronize();
-    stepper.advance_M905();
+    stepper.advance_M905(code_seen('K') ? code_value_float() : -1.0);
   }
 #endif
 
