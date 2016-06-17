@@ -392,7 +392,7 @@ static uint8_t target_extruder;
   };
 #endif
 
-#if HAS_Z_ENDSTOP_SERVO
+#if HAS_Z_SERVO_ENDSTOP
   const int z_servo_angle[2] = Z_SERVO_ANGLES;
 #endif
 
@@ -747,7 +747,7 @@ void servo_init() {
     servo[3].detach();
   #endif
 
-  #if HAS_Z_ENDSTOP_SERVO
+  #if HAS_Z_SERVO_ENDSTOP
 
     endstops.enable_z_probe(false);
 
@@ -761,7 +761,7 @@ void servo_init() {
      *
      */
     STOW_Z_SERVO();
-  #endif // HAS_Z_ENDSTOP_SERVO
+  #endif // HAS_Z_SERVO_ENDSTOP
 
 }
 
@@ -1831,7 +1831,7 @@ static void setup_for_endstop_move() {
 
     if (endstops.z_probe_enabled) return;
 
-    #if HAS_Z_ENDSTOP_SERVO
+    #if HAS_Z_SERVO_ENDSTOP
 
       // Engage Z Servo endstop if enabled
       DEPLOY_Z_SERVO();
@@ -1918,7 +1918,7 @@ static void setup_for_endstop_move() {
   }
 
   static void stow_z_probe(bool doRaise = true) {
-    #if !(HAS_Z_ENDSTOP_SERVO && (Z_RAISE_AFTER_PROBING > 0))
+    #if !(HAS_Z_SERVO_ENDSTOP && (Z_RAISE_AFTER_PROBING > 0))
       UNUSED(doRaise);
     #endif
     #if ENABLED(DEBUG_LEVELING_FEATURE)
@@ -1927,7 +1927,7 @@ static void setup_for_endstop_move() {
 
     if (!endstops.z_probe_enabled) return;
 
-    #if HAS_Z_ENDSTOP_SERVO
+    #if HAS_Z_SERVO_ENDSTOP
 
       // Retract Z Servo endstop if enabled
       #if Z_RAISE_AFTER_PROBING > 0
@@ -2158,7 +2158,7 @@ static void setup_for_endstop_move() {
 
   #endif // DELTA
 
-  #if HAS_Z_ENDSTOP_SERVO && DISABLED(Z_PROBE_SLED)
+  #if HAS_Z_SERVO_ENDSTOP
 
     /**
      * Raise Z to a minimum height to make room for a servo to move
@@ -2285,7 +2285,7 @@ static void homeaxis(AxisEnum axis) {
       #define _Z_STOW             (stow_z_probe())
       #define _Z_SERVO_TEST       (axis != Z_AXIS)      // already deployed Z
       #define _Z_SERVO_SUBTEST    false                 // Z will never be invoked
-    #elif HAS_Z_ENDSTOP_SERVO
+    #elif HAS_Z_SERVO_ENDSTOP
       #define _Z_DEPLOY           do{ raise_z_for_servo(Z_RAISE_BEFORE_PROBING); DEPLOY_Z_SERVO(); endstops.z_probe_enabled = true; }while(0)
       #define _Z_STOW             do{ raise_z_for_servo(Z_RAISE_AFTER_PROBING); STOW_Z_SERVO(); endstops.z_probe_enabled = false; }while(0)
       #define _Z_SERVO_TEST       true                  // Z not deployed yet
@@ -2293,7 +2293,7 @@ static void homeaxis(AxisEnum axis) {
     #endif
 
     // Homing Z towards the bed? Deploy the Z probe or endstop.
-    #if ENABLED(Z_PROBE_SLED) || SERVO_LEVELING || ENABLED(FIX_MOUNTED_PROBE) || HAS_Z_ENDSTOP_SERVO
+    #if ENABLED(Z_PROBE_SLED) || SERVO_LEVELING || ENABLED(FIX_MOUNTED_PROBE) || HAS_Z_SERVO_ENDSTOP
       if (axis == Z_AXIS && axis_home_dir < 0) {
         #if ENABLED(DEBUG_LEVELING_FEATURE)
           if (DEBUGGING(LEVELING)) SERIAL_ECHOLNPGM("> SERVO_LEVELING > " STRINGIFY(_Z_DEPLOY));
@@ -2416,7 +2416,7 @@ static void homeaxis(AxisEnum axis) {
     axis_homed[axis] = true;
 
     // Put away the Z probe
-    #if ENABLED(Z_PROBE_SLED) || SERVO_LEVELING || ENABLED(FIX_MOUNTED_PROBE) || HAS_Z_ENDSTOP_SERVO
+    #if ENABLED(Z_PROBE_SLED) || SERVO_LEVELING || ENABLED(FIX_MOUNTED_PROBE) || HAS_Z_SERVO_ENDSTOP
       if (axis == Z_AXIS && axis_home_dir < 0) {
         #if ENABLED(DEBUG_LEVELING_FEATURE)
           if (DEBUGGING(LEVELING)) SERIAL_ECHOLNPGM("> SERVO_LEVELING > " STRINGIFY(_Z_STOW));
@@ -3766,7 +3766,7 @@ inline void gcode_G28() {
         #endif
 
         current_position[Z_AXIS] = -zprobe_zoffset + (z_tmp - real_z)
-          #if HAS_Z_ENDSTOP_SERVO || ENABLED(Z_PROBE_ALLEN_KEY) || ENABLED(Z_PROBE_SLED)
+          #if HAS_Z_SERVO_ENDSTOP || ENABLED(Z_PROBE_ALLEN_KEY) || ENABLED(Z_PROBE_SLED)
              + Z_RAISE_AFTER_PROBING
           #endif
           ;
@@ -3781,7 +3781,7 @@ inline void gcode_G28() {
       // Sled assembly for Cartesian bots
       #if ENABLED(Z_PROBE_SLED)
         dock_sled(true); // dock the sled
-      #elif !HAS_Z_ENDSTOP_SERVO && DISABLED(Z_PROBE_ALLEN_KEY) && DISABLED(Z_PROBE_SLED)
+      #elif !HAS_Z_SERVO_ENDSTOP && DISABLED(Z_PROBE_ALLEN_KEY) && DISABLED(Z_PROBE_SLED)
         // Raise Z axis for non-delta and non servo based probes
         raise_z_after_probing();
       #endif
@@ -3825,7 +3825,7 @@ inline void gcode_G28() {
      * G30: Do a single Z probe at the current XY
      */
     inline void gcode_G30() {
-      #if HAS_Z_ENDSTOP_SERVO
+      #if HAS_Z_SERVO_ENDSTOP
         raise_z_for_servo(Z_RAISE_BEFORE_PROBING);
       #endif
       deploy_z_probe(); // Engage Z Servo endstop if available. Z_PROBE_SLED is missed here.
@@ -3847,7 +3847,7 @@ inline void gcode_G28() {
 
       clean_up_after_endstop_move(); // Too early. must be done after the stowing.
 
-      #if HAS_Z_ENDSTOP_SERVO
+      #if HAS_Z_SERVO_ENDSTOP
         raise_z_for_servo(Z_RAISE_AFTER_PROBING);
       #endif
       stow_z_probe(false); // Retract Z Servo endstop if available. Z_PROBE_SLED is missed here.
@@ -5989,13 +5989,13 @@ inline void gcode_M303() {
  */
 inline void gcode_M400() { stepper.synchronize(); }
 
-#if ENABLED(AUTO_BED_LEVELING_FEATURE) && DISABLED(Z_PROBE_SLED) && (HAS_Z_ENDSTOP_SERVO || ENABLED(Z_PROBE_ALLEN_KEY))
+#if ENABLED(AUTO_BED_LEVELING_FEATURE) && DISABLED(Z_PROBE_SLED) && (HAS_Z_SERVO_ENDSTOP || ENABLED(Z_PROBE_ALLEN_KEY))
 
   /**
    * M401: Engage Z Servo endstop if available
    */
   inline void gcode_M401() {
-    #if HAS_Z_ENDSTOP_SERVO
+    #if HAS_Z_SERVO_ENDSTOP
       raise_z_for_servo(Z_RAISE_BEFORE_PROBING);
     #endif
     deploy_z_probe();
@@ -6005,13 +6005,13 @@ inline void gcode_M400() { stepper.synchronize(); }
    * M402: Retract Z Servo endstop if enabled
    */
   inline void gcode_M402() {
-    #if HAS_Z_ENDSTOP_SERVO
+    #if HAS_Z_SERVO_ENDSTOP
       raise_z_for_servo(Z_RAISE_AFTER_PROBING);
     #endif
     stow_z_probe(false);
   }
 
-#endif // AUTO_BED_LEVELING_FEATURE && (HAS_Z_ENDSTOP_SERVO || Z_PROBE_ALLEN_KEY) && !Z_PROBE_SLED
+#endif // AUTO_BED_LEVELING_FEATURE && (HAS_Z_SERVO_ENDSTOP || Z_PROBE_ALLEN_KEY) && !Z_PROBE_SLED
 
 #if ENABLED(FILAMENT_WIDTH_SENSOR)
 
@@ -7312,14 +7312,14 @@ void process_next_command() {
         gcode_M400();
         break;
 
-      #if ENABLED(AUTO_BED_LEVELING_FEATURE) && (HAS_Z_ENDSTOP_SERVO || ENABLED(Z_PROBE_ALLEN_KEY)) && DISABLED(Z_PROBE_SLED)
+      #if ENABLED(AUTO_BED_LEVELING_FEATURE) && (HAS_Z_SERVO_ENDSTOP || ENABLED(Z_PROBE_ALLEN_KEY)) && DISABLED(Z_PROBE_SLED)
         case 401:
           gcode_M401();
           break;
         case 402:
           gcode_M402();
           break;
-      #endif // AUTO_BED_LEVELING_FEATURE && (HAS_Z_ENDSTOP_SERVO || Z_PROBE_ALLEN_KEY) && !Z_PROBE_SLED
+      #endif // AUTO_BED_LEVELING_FEATURE && (HAS_Z_SERVO_ENDSTOP || Z_PROBE_ALLEN_KEY) && !Z_PROBE_SLED
 
       #if ENABLED(FILAMENT_WIDTH_SENSOR)
         case 404:  //M404 Enter the nominal filament width (3mm, 1.75mm ) N<3.0> or display nominal filament width
