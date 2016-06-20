@@ -3816,6 +3816,8 @@ inline void gcode_G28() {
 
     #if ENABLED(Z_PROBE_ALLEN_KEY) || ENABLED(Z_PROBE_SLED) || ENABLED(MECHANICAL_PROBE)
       stow_z_probe();
+    #else
+      endstops.enable_z_probe(false);
     #endif
 
     #ifdef Z_PROBE_END_SCRIPT
@@ -3826,9 +3828,6 @@ inline void gcode_G28() {
         }
       #endif
       enqueue_and_echo_commands_P(PSTR(Z_PROBE_END_SCRIPT));
-      #if HAS_BED_PROBE
-        endstops.enable_z_probe(false);
-      #endif
       stepper.synchronize();
     #endif
 
@@ -3859,9 +3858,9 @@ inline void gcode_G28() {
     deploy_z_probe();
 
     stepper.synchronize();
-    // TODO: clear the leveling matrix or the planner will be set incorrectly
 
-    run_z_probe();
+    // TODO: clear the leveling matrix or the planner will be set incorrectly
+    run_z_probe(); // clears the ABL non-delta matrix only
 
     SERIAL_PROTOCOLPGM("Bed X: ");
     SERIAL_PROTOCOL(current_position[X_AXIS] + X_PROBE_OFFSET_FROM_EXTRUDER + 0.0001);
