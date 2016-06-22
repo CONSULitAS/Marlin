@@ -4209,8 +4209,7 @@ inline void gcode_M42() {
     }
 
     float  X_current = current_position[X_AXIS],
-           Y_current = current_position[Y_AXIS],
-           Z_start_location = current_position[Z_AXIS] + Z_RAISE_BEFORE_PROBING;
+           Y_current = current_position[Y_AXIS];
 
     #if ENABLED(Z_PROBE_SLED) || ENABLED(Z_PROBE_ALLEN_KEY)
       const bool deploy_probe_for_each_reading = false;
@@ -4268,10 +4267,7 @@ inline void gcode_M42() {
 
     setup_for_endstop_or_probe_move();
 
-    if (Z_start_location < Z_RAISE_BEFORE_PROBING * 2.0) {
-      feedrate = homing_feedrate[Z_AXIS];
-      do_blocking_move_to_z(Z_start_location);
-    }
+    do_probe_raise(Z_RAISE_BEFORE_PROBING);
 
     feedrate = XY_PROBE_FEEDRATE;
     do_blocking_move_to_xy(X_probe_location - (X_PROBE_OFFSET_FROM_EXTRUDER), Y_probe_location - (Y_PROBE_OFFSET_FROM_EXTRUDER));
