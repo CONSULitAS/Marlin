@@ -1892,7 +1892,7 @@ static void clean_up_after_endstop_or_probe_move() {
           stop();
         }
 
-    #elif ENABLED(FIX_MOUNTED_PROBE)
+    #else
 
       // Nothing to be done. Just enable_z_probe below...
 
@@ -1984,7 +1984,7 @@ static void clean_up_after_endstop_or_probe_move() {
           stop();
         }
 
-    #elif ENABLED(FIX_MOUNTED_PROBE)
+    #else
 
       // Nothing to do here. Just clear endstops.z_probe_enabled
 
