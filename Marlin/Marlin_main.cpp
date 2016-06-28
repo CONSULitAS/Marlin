@@ -1444,8 +1444,8 @@ static void set_home_offset(AxisEnum axis, float v) {
 static void set_axis_is_at_home(AxisEnum axis) {
   #if ENABLED(DEBUG_LEVELING_FEATURE)
     if (DEBUGGING(LEVELING)) {
-      SERIAL_ECHOPAIR("set_axis_is_at_home(", axis);
-      SERIAL_ECHOLNPGM(") >>>");
+      SERIAL_ECHOPAIR(">>> set_axis_is_at_home(", axis);
+      SERIAL_ECHOLNPGM(")");
     }
   #endif
 
@@ -1995,7 +1995,7 @@ static void clean_up_after_endstop_or_probe_move() {
       long start_steps = stepper.position(Z_AXIS);
 
       #if ENABLED(DEBUG_LEVELING_FEATURE)
-        if (DEBUGGING(LEVELING)) SERIAL_ECHOLNPGM("run_z_probe (DELTA) 1");
+        if (DEBUGGING(LEVELING)) DEBUG_POS("run_z_probe (DELTA) 1", current_position);
       #endif
 
       // move down slowly until you find the bed
@@ -2016,8 +2016,6 @@ static void clean_up_after_endstop_or_probe_move() {
       #if ENABLED(DEBUG_LEVELING_FEATURE)
         if (DEBUGGING(LEVELING)) DEBUG_POS("run_z_probe (DELTA) 2", current_position);
       #endif
-
-      SYNC_PLAN_POSITION_KINEMATIC();
 
     #else // !DELTA
 
@@ -2056,13 +2054,13 @@ static void clean_up_after_endstop_or_probe_move() {
       // Get the current stepper position after bumping an endstop
       current_position[Z_AXIS] = stepper.get_axis_position_mm(Z_AXIS);
 
-      SYNC_PLAN_POSITION_KINEMATIC();
-
       #if ENABLED(DEBUG_LEVELING_FEATURE)
         if (DEBUGGING(LEVELING)) DEBUG_POS("run_z_probe", current_position);
       #endif
 
     #endif // !DELTA
+
+    SYNC_PLAN_POSITION_KINEMATIC();
 
     feedrate = old_feedrate;
 
@@ -2085,9 +2083,10 @@ static void clean_up_after_endstop_or_probe_move() {
   static float probe_pt(float x, float y, bool stow = true, int verbose_level = 1) {
     #if ENABLED(DEBUG_LEVELING_FEATURE)
       if (DEBUGGING(LEVELING)) {
-        SERIAL_ECHOLNPGM("probe_pt >>>");
-        SERIAL_ECHOPAIR("> stow:", stow);
-        SERIAL_EOL;
+        SERIAL_ECHOPAIR(">>> probe_pt(", x);
+        SERIAL_ECHOPAIR(", ", y);
+        SERIAL_ECHOPAIR(", ", stow ? "stow" : "no stow");
+        SERIAL_ECHOLNPGM(")");
         DEBUG_POS("", current_position);
       }
     #endif
@@ -2743,7 +2742,7 @@ inline void gcode_G4() {
 inline void gcode_G28() {
 
   #if ENABLED(DEBUG_LEVELING_FEATURE)
-    if (DEBUGGING(LEVELING)) SERIAL_ECHOLNPGM("gcode_G28 >>>");
+    if (DEBUGGING(LEVELING)) SERIAL_ECHOLNPGM(">>> gcode_G28");
   #endif
 
   // Wait for planner moves to finish!
@@ -3362,7 +3361,7 @@ inline void gcode_G28() {
 
     #if ENABLED(DEBUG_LEVELING_FEATURE)
       if (DEBUGGING(LEVELING)) {
-        SERIAL_ECHOLNPGM("gcode_G29 >>>");
+        SERIAL_ECHOLNPGM(">>> gcode_G29");
         DEBUG_POS("", current_position);
       }
     #endif
