@@ -1602,9 +1602,20 @@ inline float set_homing_bump_feedrate(AxisEnum axis) {
 inline void line_to_current_position() {
   planner.buffer_line(current_position[X_AXIS], current_position[Y_AXIS], current_position[Z_AXIS], current_position[E_AXIS], MMM_TO_MMS(feedrate_mm_m), active_extruder);
 }
+
 inline void line_to_z(float zPosition) {
   planner.buffer_line(current_position[X_AXIS], current_position[Y_AXIS], zPosition, current_position[E_AXIS], MMM_TO_MMS(feedrate_mm_m), active_extruder);
 }
+
+inline void line_to_axis_pos(AxisEnum axis, float where, float fr_mm_m = 0.0) {
+  float old_feedrate_mm_m = feedrate_mm_m;
+  current_position[axis] = where;
+  feedrate_mm_m = (fr_mm_m != 0.0) ? fr_mm_m : homing_feedrate_mm_m[axis];
+  planner.buffer_line(current_position[X_AXIS], current_position[Y_AXIS], current_position[Z_AXIS], current_position[E_AXIS], MMM_TO_MMS(feedrate_mm_m), active_extruder);
+  stepper.synchronize(); // The lost one
+  feedrate_mm_m = old_feedrate_mm_m;
+}
+
 //
 // line_to_destination
 // Move the planner, not necessarily synced with current_position
@@ -1695,11 +1706,6 @@ static void do_blocking_move_to(float x, float y, float z, float fr_mm_m = 0.0) 
   stepper.synchronize();
 
   feedrate_mm_m = old_feedrate_mm_m;
-}
-
-inline void do_blocking_move_to_axis_pos(AxisEnum axis, float where, float fr_mm_m = 0.0) {
-  current_position[axis] = where;
-  do_blocking_move_to(current_position[X_AXIS], current_position[Y_AXIS], current_position[Z_AXIS], fr_mm_m);
 }
 
 inline void do_blocking_move_to_x(float x, float fr_mm_m = 0.0) {
@@ -2414,19 +2420,17 @@ static void homeaxis(AxisEnum axis) {
   #endif
 
   // Move towards the endstop until an endstop is triggered
-  do_blocking_move_to_axis_pos(axis, 1.5 * max_length(axis) * axis_home_dir, homing_feedrate_mm_m[axis]);
+  line_to_axis_pos(axis, 1.5 * max_length(axis) * axis_home_dir);
 
   // Set the axis position as setup for the move
   current_position[axis] = 0;
   sync_plan_position();
 
   // Move away from the endstop by the axis HOME_BUMP_MM
-  do_blocking_move_to_axis_pos(axis, -home_bump_mm(axis) * axis_home_dir, homing_feedrate_mm_m[axis]);
-
-  // Slow down the feedrate for the next move
+  line_to_axis_pos(axis, -home_bump_mm(axis) * axis_home_dir);
 
   // Move slowly towards the endstop until triggered
-  do_blocking_move_to_axis_pos(axis, 2 * home_bump_mm(axis) * axis_home_dir, set_homing_bump_feedrate(axis));
+  line_to_axis_pos(axis, 2 * home_bump_mm(axis) * axis_home_dir, set_homing_bump_feedrate(axis));
 
   #if ENABLED(DEBUG_LEVELING_FEATURE)
     if (DEBUGGING(LEVELING)) DEBUG_POS("> TRIGGER ENDSTOP", current_position);
@@ -2447,7 +2451,7 @@ static void homeaxis(AxisEnum axis) {
       sync_plan_position();
 
       // Move to the adjusted endstop height
-      do_blocking_move_to_z(adj, homing_feedrate_mm_m[axis]);
+      line_to_axis_pos(axis, adj);
 
       if (lockZ1) stepper.set_z_lock(false); else stepper.set_z2_lock(false);
       stepper.set_homing_flag(false);
@@ -2464,7 +2468,7 @@ static void homeaxis(AxisEnum axis) {
           DEBUG_POS("", current_position);
         }
       #endif
-      do_blocking_move_to_axis_pos(axis, endstop_adj[axis], set_homing_bump_feedrate(axis));
+      line_to_axis_pos(axis, endstop_adj[axis]);
     }
   #endif
 
@@ -2814,30 +2818,6 @@ inline void gcode_G4() {
   }
 #endif
 
-#if ENABLED(QUICK_HOME)
-
-  static void quick_home_xy() {
-
-    #if ENABLED(DUAL_X_CARRIAGE)
-      int x_axis_home_dir = x_home_dir(active_extruder);
-      extruder_duplication_enabled = false;
-    #else
-      int x_axis_home_dir = home_dir(X_AXIS);
-    #endif
-
-    float mlx = max_length(X_AXIS),
-          mly = max_length(Y_AXIS),
-          mlratio = mlx > mly ? mly / mlx : mlx / mly,
-          fr_mm_m = min(homing_feedrate_mm_m[X_AXIS], homing_feedrate_mm_m[Y_AXIS]) * sqrt(sq(mlratio) + 1);
-
-    do_blocking_move_to_xy(1.5 * mlx * x_axis_home_dir, 1.5 * mly * home_dir(Y_AXIS), fr_mm_m);
-    endstops.hit_on_purpose(); // clear endstop hit flags
-    current_position[X_AXIS] = current_position[Y_AXIS] = 0;
-
-  }
-
-#endif // QUICK_HOME
-
 #if ENABLED(NOZZLE_PARK_FEATURE)
   #include "nozzle.h"
 
@@ -2851,6 +2831,34 @@ inline void gcode_G4() {
     Nozzle::park(z_action);
   }
 #endif // NOZZLE_PARK_FEATURE
+
+#if ENABLED(QUICK_HOME)
+
+  static void quick_home_xy() {
+
+    // Pretend the current position is 0,0
+    current_position[X_AXIS] = current_position[Y_AXIS] = 0.0;
+    sync_plan_position();
+
+    #if ENABLED(DUAL_X_CARRIAGE)
+      int x_axis_home_dir = x_home_dir(active_extruder);
+      extruder_duplication_enabled = false;
+    #else
+      int x_axis_home_dir = home_dir(X_AXIS);
+    #endif
+
+    float mlx = max_length(X_AXIS),
+          mly = max_length(Y_AXIS),
+          mlratio = mlx > mly ? mly / mlx : mlx / mly,
+          fr_mm_m = min(homing_feedrate_mm_m[X_AXIS], homing_feedrate_mm_m[Y_AXIS]) * sqrt(sq(mlratio) + 1.0);
+
+    do_blocking_move_to_xy(1.5 * mlx * x_axis_home_dir, 1.5 * mly * home_dir(Y_AXIS), fr_mm_m);
+    endstops.hit_on_purpose(); // clear endstop hit flags
+    current_position[X_AXIS] = current_position[Y_AXIS] = 0.0;
+
+  }
+
+#endif // QUICK_HOME
 
 /**
  * G28: Home all axes according to settings
@@ -2920,20 +2928,19 @@ inline void gcode_G28() {
      */
 
     // Pretend the current position is 0,0,0
-    for (int i = X_AXIS; i <= Z_AXIS; i++) current_position[i] = 0;
+    // This is like quick_home_xy() but for 3 towers.
+    current_position[X_AXIS] = current_position[Y_AXIS] = current_position[Z_AXIS] = 0.0;
     sync_plan_position();
 
     // Move all carriages up together until the first endstop is hit.
-    for (int i = X_AXIS; i <= Z_AXIS; i++) destination[i] = 3 * (Z_MAX_LENGTH);
+    current_position[X_AXIS] = current_position[Y_AXIS] = current_position[Z_AXIS] = 3.0 * (Z_MAX_LENGTH);
     feedrate_mm_m = 1.732 * homing_feedrate_mm_m[X_AXIS];
-    line_to_destination();
+    line_to_current_position();
     stepper.synchronize();
     endstops.hit_on_purpose(); // clear endstop hit flags
+    current_position[X_AXIS] = current_position[Y_AXIS] = current_position[Z_AXIS] = 0.0;
 
-    // Destination reached
-    for (int i = X_AXIS; i <= Z_AXIS; i++) current_position[i] = destination[i];
-
-    // take care of back off and rehome now we are all at the top
+    // take care of back off and rehome. Now one carriage is at the top.
     HOMEAXIS(X);
     HOMEAXIS(Y);
     HOMEAXIS(Z);
