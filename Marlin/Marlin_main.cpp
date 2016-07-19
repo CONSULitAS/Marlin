@@ -535,17 +535,6 @@ static bool send_ok[BUFSIZE];
 #endif
 
 #if ENABLED(HOST_KEEPALIVE_FEATURE)
-
-  // States for managing Marlin and host communication
-  // Marlin sends messages if blocked or busy
-  enum MarlinBusyState {
-    NOT_BUSY,           // Not in a handler
-    IN_HANDLER,         // Processing a GCode
-    IN_PROCESS,         // Known to be blocking command input (as in G29)
-    PAUSED_FOR_USER,    // Blocking pending any input
-    PAUSED_FOR_INPUT    // Blocking pending text input (concept)
-  };
-
   static MarlinBusyState busy_state = NOT_BUSY;
   static millis_t next_busy_signal_ms = 0;
   uint8_t host_keepalive_interval = DEFAULT_KEEPALIVE_INTERVAL;
@@ -3213,9 +3202,6 @@ inline void gcode_G28() {
 #endif
 
 #if ENABLED(MESH_BED_LEVELING)
-
-  enum MeshLevelingState { MeshReport, MeshStart, MeshNext, MeshSet, MeshSetZOffset, MeshReset };
-
   inline void _mbl_goto_xy(float x, float y) {
     float old_feedrate_mm_m = feedrate_mm_m;
     feedrate_mm_m = homing_feedrate_mm_m[X_AXIS];
